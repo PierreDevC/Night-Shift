@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101719" />
+    <title>Night Shift — Pump 4</title>
+    <link rel="stylesheet" href="src/style.css" />
+  </head>
+  <body>
+    <canvas
+      id="game"
+      aria-label="Night Shift first-person horror game"
+    ></canvas>
+    <div id="grain" aria-hidden="true"></div>
+    <div id="camcorder" aria-hidden="true">
+      <i class="cc tl"></i><i class="cc tr"></i><i class="cc bl"></i
+      ><i class="cc br"></i>
+      <div class="cc-rec"><b></b>REC</div>
+      <div class="cc-tape"><span id="cc-date">1998 04 17</span
+        ><span id="cc-time">00:00:00</span></div>
+      <div class="cc-batt"><i></i><i></i><i></i></div>
+    </div>
+    <div id="vignette" aria-hidden="true"></div>
+    <div id="fps-counter" class="hidden" aria-live="off">FPS —</div>
+    <div id="damage" aria-hidden="true"></div>
+    <div id="loading">
+      <span class="eyebrow">KUROSE SERVICE</span>
+      <p>Waking the station.</p>
+      <span id="load-status">Preparing the night shift…</span>
+    </div>
+    <main id="menu" class="hidden">
+      <header>
+        <span class="brand"><i></i> KUROSE SERVICE</span
+        ><span class="edition">AN INTERACTIVE GHOST STORY</span>
+      </header>
+      <section class="title-block">
+        <div class="eyebrow">
+          <span class="live-dot"></span> MOUNTAIN ROUTE 17 · 11:42 PM
+        </div>
+        <h1>NIGHT<br />SHIFT<span class="title-period">.</span></h1>
+        <div class="title-sub"><span>夜間勤務</span><span>PUMP 04</span></div>
+        <p class="intro">
+          Keep the lights on.<br />Serve the customers.<br />Leave when your
+          shift is over.
+        </p>
+        <button id="start" class="primary">
+          START YOUR SHIFT <span>↗</span></button
+        ><button id="settings-menu" class="text-button">
+          Settings & controls
+        </button>
+      </section>
+      <footer>
+        <span>ONE NIGHT. ONE UNFINISHED TRANSACTION.</span
+        ><span>HEADPHONES RECOMMENDED <i class="sound-icon">▥</i></span>
+      </footer>
+      <div class="menu-note">
+        <span>04</span>
+        <p>OUT OF SERVICE<br /><b>DO NOT AUTHORIZE</b></p>
+      </div>
+    </main>
+    <div id="hud" class="hidden">
+      <div class="hud-top">
+        <span class="brand"><i></i> KUROSE <small>NIGHT ATTENDANT</small></span>
+        <div class="clock">
+          <span id="chapter-label">THE HANDOVER</span><b id="clock">11:42 PM</b>
+        </div>
+      </div>
+      <div id="objective">
+        <span class="eyebrow">SHIFT LOG <i id="task-count">01</i></span>
+        <p id="objective-text"></p>
+        <small id="objective-hint"></small>
+      </div>
+      <div id="crosshair"></div>
+      <div id="prompt" class="hidden"><kbd>E</kbd><span></span></div>
+      <div id="subtitle" class="hidden">
+        <b></b>
+        <p></p>
+      </div>
+      <div class="hud-bottom">
+        <div id="held">
+          <span class="item-icon">◇</span
+          ><span id="held-text">EMPTY HANDS</span>
+        </div>
+        <div class="controls">
+          <span><kbd>WASD</kbd> Walk</span><span><kbd>F</kbd> Torch</span
+          ><span><kbd>TAB</kbd> Journal</span><span><kbd>ESC</kbd> Pause</span>
+        </div>
+        <div id="health-wrap">
+          <span>CONDITION</span><i><b id="health-bar"></b></i>
+        </div>
+      </div>
+      <div id="toast" class="hidden"></div>
+      <div id="checkout" class="hidden">
+        <span class="eyebrow">CURRENT CUSTOMER</span><b id="order-name"></b>
+        <div id="order-lines"></div>
+        <div class="order-total">
+          <span>TOTAL</span><span id="order-total"></span>
+        </div>
+        <small id="order-help">Scan each item at the counter.</small>
+      </div>
+      <div id="lock-hint" class="hidden">
+        Click to look around <span>WASD to move · Esc to pause</span>
+      </div>
+      <div id="danger-label" class="hidden">
+        <span class="live-dot"></span> SOMEONE IS INSIDE
+      </div>
+    </div>
+    <div
+      id="modal"
+      class="hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div class="modal-backdrop"></div>
+      <article>
+        <span id="modal-tag" class="eyebrow">KUROSE SERVICE</span>
+        <h2 id="modal-title"></h2>
+        <div id="modal-body"></div>
+        <div id="modal-buttons"></div>
+      </article>
+    </div>
+    <div id="cctv" class="hidden">
+      <div class="cctv-header">
+        <span><i class="live-dot"></i> REC</span
+        ><span>KUROSE SECURITY / CAM 02</span><b id="cctv-time">01:06:44</b>
+      </div>
+      <div class="cctv-brackets"></div>
+      <div id="cctv-caption"></div>
+      <button id="close-cctv">RETURN TO COUNTER <kbd>E</kbd></button>
+    </div>
+    <div id="ending" class="hidden">
+      <span class="eyebrow">NIGHT SHIFT / PUMP 04</span
+      ><span id="ending-number"></span>
+      <h2 id="ending-title"></h2>
+      <p id="ending-text"></p>
+      <button id="restart" class="primary">ANOTHER SHIFT <span>↻</span></button
+      ><small
+        >Created with Babylon.js · Original story, environment & sound</small
+      >
+    </div>
+    <script src="vendor/babylon.js"></script>
+    <script src="src/audio.js"></script>
+    <script src="src/vhs.js"></script>
+    <script src="src/world.js"></script>
+    <script src="src/store.js"></script>
+    <script src="src/game.js"></script>
+  </body>
+</html>

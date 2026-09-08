@@ -1,0 +1,13 @@
+{
+  "name": "night-shift-pump-four",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A self-contained local Babylon.js horror game",
+  "scripts": {
+    "test": "node tests/smoke.cjs",
+    "check": "node --check src/world.js && node --check src/store.js && node --check src/game.js && node --check src/audio.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.55.0"
+  }
+}
