@@ -3,13 +3,10 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
-const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
+const { launch } = require("./helpers/browser.cjs");
 (async () => {
   fs.mkdirSync("test-results", { recursive: true });
-  const browser = await chromium.launch({
-    headless: true,
-    channel: process.env.BROWSER_CHANNEL || undefined,
-  });
+  const browser = await launch();
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
   });
@@ -36,6 +33,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
     "Every fixture standing position is clear of geometry",
   );
 
+  // Story regression is deterministic; overlapping traffic has its own test.
+  await page.evaluate(() => (__nightShift.G.ambientEnabled = false));
   await page.click("#start");
   assert.equal(await page.evaluate(() => __nightShift.G.mode), "playing");
   const action = (id) => page.evaluate((id) => __nightShift.interact(id), id);
@@ -203,15 +202,15 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
   assert.deepEqual(unreachable, [], "Every interaction is usable on foot");
 
   // Story: clock in, restock, then the night's customers.
+  assert.equal(await aim("stock-door"), "stock-door");
+  await page.keyboard.press("KeyE");
+  await tick(1);
   assert.equal(await aim("office-door"), "office-door");
   await page.keyboard.press("KeyE");
   await tick(1);
   assert.equal(await aim("timeclock"), "timeclock");
   await page.keyboard.press("KeyE");
   assert.equal((await state()).phase, "prep");
-  assert.equal(await aim("stock-door"), "stock-door");
-  await page.keyboard.press("KeyE");
-  await tick(1);
   assert.equal(await aim("coffee-carton"), "coffee-carton");
   await page.keyboard.press("KeyE");
   assert.ok(await page.evaluate(() => __nightShift.G.carry?.kind === "carton"), "Carton in hand");

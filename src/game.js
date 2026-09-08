@@ -23,6 +23,13 @@
     held: null,
     carry: null,
     customer: null,
+    storyCustomer: null,
+    shoppers: [],
+    queue: [],
+    ambientEnabled: true,
+    nextAmbient: 0,
+    ambientSerial: 0,
+    trafficRandom: Math.random,
     threat: null,
     events: [],
     serial: 0,
@@ -162,10 +169,13 @@
     }
   }
   function release() {
-    if (document.pointerLockElement === canvas) document.exitPointerLock();
+    if (document.pointerLockElement === canvas) {
+      G.expectedUnlock = true;
+      document.exitPointerLock();
+    }
   }
   function capture() {
-    if (G.mode !== "playing" || G.modal || G.cctv) return;
+    if (G.mode !== "playing" || G.modal || G.cctv || G.expectedUnlock) return;
     try {
       const p = canvas.requestPointerLock();
       if (p && p.catch) p.catch(() => {});
@@ -408,7 +418,7 @@
       return;
     }
     show("checkout");
-    $("order-name").textContent = people[c.id].name;
+    $("order-name").textContent = customerPerson(c).name;
     $("order-lines").innerHTML = c.order
       .map((id, i) => {
         const p = W.products.find((p) => p.id === id);
@@ -434,6 +444,82 @@
             ? "Validate Pump 0" + c.pump + " on the fuel computer."
             : "Use the cash register to take payment.";
   }
+  const customerPerson = (c) => c.person || people[c.id];
+  const ordinaryPhases = new Set(["emi", "daichi", "hasegawa", "ryo"]);
+
+  // One till, several independently arriving shoppers. Narrative customers
+  // retain their identity even when a walk-in is currently being served.
+  function queueCustomer(c) {
+    if (!G.shoppers.includes(c)) return;
+    c.state = "queued";
+    if (!G.queue.includes(c)) G.queue.push(c);
+    advanceQueue();
+  }
+  function advanceQueue() {
+    const busy = G.customer && ["approaching", "waiting", "strange", "hostile"].includes(G.customer.state);
+    if (!busy && G.queue.length) {
+      const c = G.queue.shift();
+      G.customer = c;
+      G.scan = 0;
+      c.state = "approaching";
+      c.npc.walkTo(W.spots.counter[0], W.spots.counter[1], () => customerAtCounter(c, c.npc));
+    }
+    G.queue.forEach((c, i) => {
+      const x = 4.85 - i * 0.85, z = 3.65;
+      c.npc.walkTo(x, z, () => { c.npc.root.rotation.y = Math.PI / 2; });
+    });
+  }
+  function updateTraffic() {
+    if (!G.ambientEnabled || !ordinaryPhases.has(G.phase) || G.pendingStory === "shibata") return;
+    if (G.elapsed < G.nextAmbient) return;
+    G.nextAmbient = G.elapsed + 18 + G.trafficRandom() * 24;
+    if (G.shoppers.filter(c => c.ambient).length < 2) spawnWalkIn();
+  }
+  function spawnWalkIn() {
+    if (!ordinaryPhases.has(G.phase) || G.pendingStory === "shibata") return null;
+    if (G.shoppers.filter(c => c.ambient).length >= 2) return null;
+    const id = "walk-in-" + (++G.ambientSerial), bay = W.reserveBay(id);
+    if (!bay) return null;
+    const profiles = [
+      { name: "Local commuter", coat: "#657c86", paint: "#496674", type: "sedan" },
+      { name: "Delivery driver", coat: "#a28b62", paint: "#b5ae97", type: "van" },
+      { name: "Night traveler", coat: "#81657b", paint: "#645865", type: "sedan", female: true },
+      { name: "Road worker", coat: "#9b744b", paint: "#66725c", type: "pickup" },
+    ];
+    const random = G.trafficRandom, profile = profiles[Math.floor(random() * profiles.length) % profiles.length];
+    const pool = ["tea", "soda", "water", "energy", "chips", "biscuits", "bread", "gum"];
+    const order = Array.from({ length: 1 + Math.floor(random() * 3) }, () => pool[Math.floor(random() * pool.length) % pool.length]);
+    const person = { ...profile, line: "Just these, please. A long night for both of us." };
+    const car = W.makeCar(person.type, person.paint, "KU " + String(50 + G.ambientSerial) + "-28");
+    car.root.position.set(-58, 0, W.L.road);
+    car.targetSpeed = 7;
+    const c = { id, ambient: true, person, bay, car, npc: null, state: "driving", order, fuel: 0, pump: 0, carriedItems: [] };
+    G.shoppers.push(c);
+    arriveCustomer(c, person, [bay.x, bay.z]);
+    return c;
+  }
+  function arriveCustomer(c, person, park) {
+    c.park = park;
+    c.doorSide = c.pump === 4 ? 1 : -1;
+    const route = c.pump
+      ? [[-22, W.L.road], [-15, 27], [c.pump === 4 ? 11 : -11, 26], [park[0], 24], [park[0], park[1]]]
+      : [[-22, W.L.road], [-15, 27], [-13, 23], [-11, 11.6], [park[0], 11.6], [park[0], park[1]]];
+    c.car.route(route, () => {
+      if (!G.shoppers.includes(c)) return;
+      c.car.root.rotation.y = c.doorSide < 0 ? Math.PI : 0;
+      c.car.doorTarget = 1;
+      later(2, () => (c.car.doorTarget = 0));
+      const npc = W.makeNPC(person.name, person.coat, "#2a2b25", person.female);
+      c.npc = npc;
+      npc.customer = c;
+      npc.root.position.set(park[0] + c.doorSide * 1.3, 0.23, park[1] - 0.2);
+      c.state = "walking";
+      npc.walkTo(W.frontDoor.x, W.frontDoor.z - 1.6, () => {
+        if (!G.shoppers.includes(c)) return;
+        browseCustomer(c, npc, () => queueCustomer(c));
+      });
+    });
+  }
   function customerSpot(id) {
     return W.itemSpots[id] || W.spots.counter;
   }
@@ -454,7 +540,7 @@
     const ids = c.order || [];
     let index = 0;
     const next = () => {
-      if (G.customer !== c || c.state === "hostile") return;
+      if (!G.shoppers.includes(c) || c.state === "hostile") return;
       if (index >= ids.length) {
         done();
         return;
@@ -462,7 +548,11 @@
       const id = ids[index],
         spot = customerSpot(id);
       npc.walkTo(spot[0], spot[1], () => {
-        if (G.customer !== c || c.state === "hostile") return;
+        if (!G.shoppers.includes(c) || c.state === "hostile") return;
+        const fridge = W.productFridges[id];
+        W.openFridge(fridge, 2.6);
+        later(fridge ? 0.8 : 0.3, () => {
+          if (!G.shoppers.includes(c) || c.state === "hostile") return;
         const item = W.makeProduct(id, 0, 0, 0);
         item.parent = npc.root;
         item.position.set(index % 2 ? -0.22 : 0.22, 1.03, -0.2);
@@ -470,31 +560,32 @@
         item.productId = id;
         c.carriedItems.push(item);
         audio.play("paper");
-        toast(
-          people[c.id].name +
+        if (!c.ambient) toast(
+          customerPerson(c).name +
             " picked up " +
             W.products.find((p) => p.id === id).name.toLowerCase() +
             ".",
         );
         index++;
         later(0.65, next);
+        });
       });
     };
     next();
   }
   function customerAtCounter(c, npc) {
-    if (G.customer !== c) return;
+    if (!G.shoppers.includes(c) || G.customer !== c) return;
     placeCustomerItems(c);
     c.state = "waiting";
     npc.root.rotation.y = Math.PI / 2;
     npc.root.position.set(W.spots.counter[0], 0.23, W.spots.counter[1]);
-    say(people[c.id].name, people[c.id].line, 9);
+    say(customerPerson(c).name, customerPerson(c).line, 9);
     objective(
       c.id === "shibata"
         ? "Serve the customer at Pump Four."
         : c.id === "mimic"
           ? "Daichi has returned. Something feels wrong."
-          : "Serve " + people[c.id].name + ".",
+          : "Serve " + customerPerson(c).name + ".",
       c.id === "daichi"
         ? "Scan the items, heat the noodles, then validate fuel or take payment."
         : c.fuel
@@ -517,64 +608,37 @@
       );
   }
   function summon(id) {
+    if (!people[id]) return;
+    // Let the last ordinary shoppers pay and leave before the supernatural
+    // sequence begins. Nothing can replace Shibata or the returning double.
+    if (id === "shibata" && G.shoppers.some(c => c.ambient)) {
+      G.pendingStory = id;
+      later(2, () => summon(id));
+      return;
+    }
+    G.pendingStory = null;
     const d = people[id];
+    const pump = id === "shibata" ? 4 : id === "emi" ? 2 : 0;
+    const bay = pump ? null : W.reserveBay(id);
+    if (!pump && !bay) { later(2, () => summon(id)); return; }
     phase(id);
     G.flags.customerSeen = false;
-    // Shoppers use the bays in front of the shop, fuel customers stop at their
-    // pump, and the cream sedan pulls up to Pump Four in full view of the till.
-    const pump = id === "shibata" ? 4 : id === "emi" ? 2 : 0,
-      park =
-        pump === 4 ? [6.9, W.L.pumpZ[1]] : pump ? [-6.9, W.L.pumpZ[1]] : [-3.7, 7.9];
+    const park = pump === 4 ? [6.9, W.L.pumpZ[1]] : pump ? [-6.9, W.L.pumpZ[1]] : [bay.x, bay.z];
     const car = W.makeCar(d.type, d.paint, d.plate);
     car.root.position.set(-58, 0, W.L.road);
     car.targetSpeed = 8;
-    const c = (G.customer = {
-      id,
-      car,
-      npc: null,
-      state: "driving",
-      order: [...orders[id]],
-      fuel: id === "emi" ? 12 : 0,
-      pump,
-      fuelAuthorized: false,
-      carriedItems: [],
-    });
-    G.scan = 0;
+    const c = {
+      id, car, bay, npc: null, state: "driving", order: [...orders[id]],
+      fuel: id === "emi" ? 12 : 0, pump, fuelAuthorized: false, carriedItems: [],
+    };
+    G.storyCustomer = c;
+    G.shoppers.push(c);
+    if (!G.customer || G.customer.state === "leaving") { G.customer = c; G.scan = 0; }
     interactCar(car, id);
-    objective(
-      "A vehicle is approaching.",
-      "Use the time to explore, check supplies, or read the shift note.",
-    );
-    car.route(
-      [
-        [-22, W.L.road],
-        [-15, W.L.road - 5],
-        [-13, 22],
-        [park[0] - 1, park[1] + 5],
-        [park[0], park[1]],
-      ],
-      () => {
-        if (G.customer !== c) return;
-        car.doorTarget = 1;
-        later(2, () => (car.doorTarget = 0));
-        const npc = W.makeNPC(d.name, d.coat, "#2a2b25", d.female);
-        c.npc = npc;
-        npc.customer = c;
-        npc.root.position.set(park[0] - 1.5, 0.23, park[1] - 0.2);
-        c.state = "walking";
-        const arrive = () => customerAtCounter(c, npc);
-        const shop = () => {
-          if (G.customer !== c) return;
-          if (c.order.length)
-            browseCustomer(c, npc, () =>
-              npc.walkTo(W.spots.counter[0], W.spots.counter[1], arrive),
-            );
-          else npc.walkTo(W.spots.counter[0], W.spots.counter[1], arrive);
-        };
-        // Walk in through the entrance, then shop the aisles.
-        npc.walkTo(W.frontDoor.x, W.frontDoor.z - 1.6, shop);
-      },
-    );
+    if (!G.customer || G.customer === c)
+      objective("A vehicle is approaching.", "Shoppers may arrive together. Serve each order at the till.");
+    if (!G.nextAmbient) G.nextAmbient = G.elapsed + 12 + G.trafficRandom() * 12;
+    arriveCustomer(c, d, park);
   }
   function interactCar(car, id) {
     W.interact(
@@ -594,7 +658,7 @@
     show("checkout", false);
     if (c.npc) {
       c.npc.walkTo(
-        c.car.root.position.x - 1.5,
+        c.car.root.position.x + c.doorSide * 1.3,
         c.car.root.position.z - 0.2,
         () => {
           c.car.doorTarget = 1;
@@ -611,15 +675,19 @@
             later(1, () =>
               c.car.route(
                 [
-                  [c.car.root.position.x, 22],
-                  [-14, 26],
+                  [c.car.root.position.x, c.bay ? 11.6 : 24],
+                  [-11, c.bay ? 11.6 : 24],
+                  [-13, 26],
                   [-8, W.L.road],
                   [62, W.L.road],
                 ],
                 () => {
                   c.car.root.setEnabled(false);
                   c.car.co.enabled = false;
+                  W.releaseBay(c.bay);
+                  G.shoppers = G.shoppers.filter(shopper => shopper !== c);
                   if (G.customer === c) G.customer = null;
+                  advanceQueue();
                   if (after) later(2, after);
                 },
               ),
@@ -628,6 +696,7 @@
         },
       );
     } else if (after) after();
+    advanceQueue();
   }
   function total(c) {
     return (
@@ -731,6 +800,7 @@
             () => {
               G.flags.ryoDecision = true;
               say("RYO", "All right. Just… don’t go near that car.");
+              G.pendingStory = "shibata";
               dismiss(() => summon("shibata"));
             },
           ],
@@ -753,6 +823,12 @@
       "THANK YOU / ありがとうございました",
     );
     for (const id of c.order) W.stock[id] = Math.max(0, W.stock[id] - 1);
+    if (c.ambient) {
+      say(customerPerson(c).name, "Thanks. Have a good night.", 4);
+      dismiss();
+      return;
+    }
+    if (c.id === "ryo") G.pendingStory = "shibata";
     const next = {
       emi: "daichi",
       daichi: "hasegawa",
@@ -917,16 +993,20 @@
     const car = W.makeCar("taxi", "#818f79", "KU 23-81");
     car.root.position.set(-58, 0, W.L.road);
     G.rescueCar = car;
+    const bay = W.reserveBay("emi-rescue");
+    G.rescueBay = bay;
     car.route(
       [
         [-20, W.L.road],
         [-15, W.L.road - 6],
-        [-13, 20],
-        [-8.4, 9.4],
+        [-11, 11.6],
+        [bay.x, 11.6],
+        [bay.x, bay.z],
       ],
       () => {
         const emi = W.makeNPC("Emi Tanabe", "#8c7760", "#302c27", true);
-        emi.root.position.set(-9.9, 0.23, 9.2);
+        car.root.rotation.y = Math.PI;
+        emi.root.position.set(bay.x - 1.3, 0.23, bay.z - 0.2);
         G.emi = emi;
         emi.walkTo(W.frontDoor.x, W.frontDoor.z + 1.5, () => {
             emi.root.rotation.y = Math.PI;
@@ -1148,6 +1228,7 @@
   }
   function interact(o) {
     if (!o || G.mode !== "playing" || G.modal || G.cctv) return;
+    if (o.data.fridge) W.openFridge(o.data.fridge, 3);
     switch (o.kind) {
       case "door": {
         const d = o.data.door;
@@ -1631,7 +1712,7 @@
         } else if (n.threat) {
           hurt(24, "Stay away from the Passenger.");
         } else if (n.customer?.state === "waiting") {
-          say(n.name, people[n.customer.id].line);
+          say(n.name, customerPerson(n.customer).line);
           updateOrder();
         } else say(n.name, "…");
         break;
@@ -1803,7 +1884,8 @@
     const roll = G.settings.bob
       ? (moving ? Math.sin(t * (sprint ? 6.2 : 4.7) + 0.4) * 0.018 : Math.sin(t * 0.52) * 0.008)
       : 0;
-    camera.position.set(p.x, EYE + bob + breathe, p.z);
+    // Match the visible floor, half step and cashier platform underfoot.
+    camera.position.set(p.x, EYE + W.floorElevation(p.x, p.z) + bob + breathe, p.z);
     camera.rotation.set(p.pitch + swayY, p.yaw + swayX, roll);
     W.torch.position.copyFrom(camera.position);
     W.torch.direction.copyFrom(camera.getForwardRay().direction);
@@ -1824,7 +1906,7 @@
     phase("handover");
     objective(
       "Clock in at the office.",
-      "Walk through the shop. The office is the left door at the back. Read the note on the desk.",
+      "Walk to the stockroom door at the back. The office is inside, through the interior staff door. Read the note on the desk.",
     );
     say(
       "KURODA / MEMORY",
@@ -1990,9 +2072,12 @@
       document.addEventListener("pointerlockchange", () => {
         const lock = document.pointerLockElement === canvas;
         const released = G.hadPointerLock && !lock;
+        const intentional = !lock && G.expectedUnlock;
+        if (!lock) G.expectedUnlock = false;
         G.hadPointerLock = lock;
         if (released) keys.clear();
-        if (released && G.mode === "playing" && !G.modal && !G.cctv) pause();
+        if (released && !intentional && G.mode === "playing" && !G.modal && !G.cctv) pause();
+        if (intentional && G.mode === "playing" && !G.modal && !G.cctv) setTimeout(capture, 0);
         show("lock-hint", G.mode === "playing" && !G.modal && !G.cctv && !lock);
       });
       window.addEventListener("resize", () => engine.resize());
@@ -2024,6 +2109,7 @@
             pick();
           }
           W.update(dt, G.player);
+          updateTraffic();
           audio.update(
             G.player.z < 5.2 && G.player.z > -9.1 && Math.abs(G.player.x) < 7,
             W.power,
@@ -2055,6 +2141,7 @@
                 m.getAbsolutePosition().z > 5,
             );
         }
+        if (G.modal) W.updateFridges(dt);
         if (G.look) {
           G.look.update(dt, G.threat ? 1 : G.phase === "siege" ? 0.45 : 0);
           if (performance.now() - (G.lastTape || 0) > 250) {
@@ -2080,6 +2167,8 @@
           start,
           interact: (id) => interact(W.interactions.find((o) => o.id === id)),
           summon,
+          spawnWalkIn,
+          advanceQueue,
           phase,
           beginSiege,
           beginRescue,
@@ -2099,6 +2188,7 @@
                 if (e.serial === G.serial) e.fn();
               });
               W.update(0.05, G.player);
+              updateTraffic();
             }
           },
           teleport(x, z, yaw = 0, pitch = 0) {

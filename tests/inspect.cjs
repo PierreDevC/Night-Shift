@@ -1,13 +1,10 @@
-const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
+const { launch } = require("./helpers/browser.cjs");
 const { pathToFileURL } = require("node:url");
 const path = require("node:path");
 const fs = require("node:fs");
 (async () => {
   fs.mkdirSync("test-results", { recursive: true });
-  const browser = await chromium.launch({
-    headless: true,
-    channel: process.env.BROWSER_CHANNEL || undefined,
-  });
+  const browser = await launch();
   const page = await browser.newPage({
     viewport: { width: 1440, height: 900 },
   });

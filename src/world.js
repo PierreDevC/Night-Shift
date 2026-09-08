@@ -155,6 +155,23 @@
       yellow: mat("safety paint", "#b5a449"),
       puddle: mat("puddles", "#7faeae", 0.08, 0.15),
     });
+    // Downloaded CC0 surface maps are bundled as data URLs for file:// play.
+    function surface(material, name, repeats, tint) {
+      const maps = window.NightTextures?.[name];
+      if (!maps) return;
+      if (material.diffuseTexture) material.diffuseTexture.dispose();
+      material.diffuseTexture = new B.Texture(maps.color, scene);
+      material.bumpTexture = new B.Texture(maps.normal, scene);
+      for (const tex of [material.diffuseTexture, material.bumpTexture]) {
+        tex.uScale = tex.vScale = repeats;
+        tex.anisotropicFilteringLevel = 4;
+      }
+      material.bumpTexture.level = 0.35;
+      material.diffuseColor = color(tint);
+    }
+    surface(M.asphalt, "asphalt", 42, "#667577");
+    surface(M.concrete, "concrete", 10, "#939b91");
+    surface(M.floor, "tiles", 7, "#a3aea0");
     M.asphalt.specularColor = new B.Color3(0.35, 0.42, 0.4);
     M.asphalt.specularPower = 90;
     M.glass.backFaceCulling = false;
@@ -448,7 +465,13 @@
       ['peanuts','Roasted peanuts',190,'#ab614b','NUTS','can'],['cereal','Breakfast cereal',320,'#9d7956','MORNING','box'],
       ['oil','Engine oil',980,'#7b6260','10W-40','bottle'],['coolant','Engine coolant',650,'#5b826c','COOLANT','bottle'],
       ['gloves','Work gloves',340,'#7d8156','WORK','box'],['wipes','Cleaning wipes',260,'#658c8b','CLEAN','box'],
-      ['detergent','Laundry powder',420,'#8185a3','FRESH','box'],['plasters','Adhesive bandages',280,'#a77a77','CARE','box']
+      ['detergent','Laundry powder',420,'#8185a3','FRESH','box'],['plasters','Adhesive bandages',280,'#a77a77','CARE','box'],
+      // Forecourt lines. A station shop sells what a driver stops for at night.
+      ['washer','Screen wash',540,'#6f8aa0','WASHER','bottle'],['bulb','Spare 12V bulb',420,'#b8a468','12V','box'],
+      ['tape','Cloth tape',360,'#8c8577','TAPE','box'],['map','Route 17 road atlas',480,'#9a8f63','MAP','box'],
+      ['ramen','Cup ramen',210,'#b06a4a','RAMEN','can'],['crackers','Rice crackers',220,'#b3894f','せんべい','box'],
+      ['pudding','Milk pudding',150,'#c9a86b','PUDDING','box'],['cola','Cola',150,'#7a5442','COLA','can'],
+      ['soap','Hand soap',300,'#8ba2a8','SOAP','bottle'],['towel','Face towel',380,'#93958c','TOWEL','box']
     ].map(([id,name,price,color,label,type])=>({id,name,price,color,label,type})));
     for (const p of products) {
       p.mat = mat(p.id + " package", p.color);
@@ -541,21 +564,20 @@
     // counter behind it, low gondola aisles across the middle, reach-in drink
     // coolers along the whole back wall, open chilled case on the left wall.
     // The customer "golden path" is entrance -> magazines -> aisles -> back
-    // wall -> counter. Staff walk the cashier lane through to the back rooms.
+    // wall -> counter. Staff use dedicated doors off the sales floor.
     // ---------------------------------------------------------------------
     const L = (W.L = {
-      floor: { west: -8, east: 9, back: -6, front: 5 },
+      floor: { west: -12, east: 9, back: -6, front: 5 },
       wall: 0.24,
       height: 3.5,
-      entrance: { x: -5.4, z: 5.12, width: 2.4 },
+      entrance: { x: -9.4, z: 5.12, width: 2.4 },
       counter: { x0: 5.9, x1: 6.85, z0: -0.75, z1: 4.15 },
       lane: { x0: 6.85, x1: 8.45 },
       backCounter: { x0: 8.45, x1: 9.0, z0: -0.5, z1: 4.0 },
-      coolers: { z: -5.4, depth: 0.85, x0: -7.9, x1: 5.3 },
-      chilled: { x: -7.6, depth: 0.8, z0: -4.4, z1: 0.6 },
-      magazines: { z: 4.6, depth: 0.4, x0: -3.9, x1: 2.6 },
-      corridor: { z0: -7.4, z1: -6.12 },
-      backRooms: { z0: -10.6, z1: -7.4, divider: 0 },
+      coolers: { z: -5.4, depth: 0.85, x0: -11.9, x1: 5.3 },
+      chilled: { x: -11.6, depth: 0.8, z0: -4.4, z1: 0.6 },
+      magazines: { z: 4.6, depth: 0.4, x0: -6.9, x1: 2.6 },
+      backRooms: { z0: -10.6, z1: -6.12, divider: 0 },
       yard: -10.6,
       canopy: { x0: -9, x1: 9, z0: 11, z1: 23, clear: 4.8 },
       islands: [-4.6, 4.6],
@@ -584,32 +606,48 @@
     for (const z of [L.road - 4.35, L.road + 4.35])
       box("road edge", 0, -0.02, z, 170, 0.01, 0.1, M.cream);
     box("forecourt apron", 0, -0.02, 14, 44, 0.02, 28, M.concrete);
-    box("shop foundation", 0.5, 0.04, -2.3, 18.4, 0.28, 17.4, M.concrete);
-    box("tiled sales floor", 0.5, 0.19, -0.5, 17.6, 0.08, 11.4, M.floor);
-    box("back of house floor", 0.5, 0.19, -8.4, 17.6, 0.08, 5, M.floor);
+    // Slabs, roof and fascia all span the envelope, so widening the shop is a
+    // change to L.floor rather than to eight hand-matched box widths.
+    const shopCx = (L.floor.west + L.floor.east) / 2,
+      shopW = L.floor.east - L.floor.west;
+    box("shop foundation", shopCx, 0.04, -2.3, shopW + 1.4, 0.28, 17.4, M.concrete);
+    // Finished floor level. The staff deck is built up from this, so the two
+    // never disagree about how far above the shop the attendant is standing.
+    const floorTop = 0.23;
+    box("tiled sales floor", shopCx, floorTop - 0.04, -0.5, shopW + 0.6, 0.08, 11.4, M.floor);
+    box("back of house floor", shopCx, floorTop - 0.04, -8.4, shopW + 0.6, 0.08, 5, M.floor);
 
     // Shell -----------------------------------------------------------------
     wall("west wall", L.floor.west - L.wall / 2, -2.75, L.wall, 16.1);
-    wall("east wall sales", L.floor.east + L.wall / 2, -0.5, L.wall, 11.4);
-    wall("east wall back", L.floor.east + L.wall / 2, -8.9, L.wall, 4.1);
-    wall("rear wall", 0.5, L.yard - L.wall / 2, 17.6 + L.wall, L.wall);
-    // Back-of-house divider, with the cashier lane left open as the staff way through.
-    wall("sales back wall", -0.75, L.floor.back - L.wall / 2, 14.9, L.wall);
-    // Corridor south wall, with an office and a stockroom doorway.
-    for (const [x, w] of [
-      [-6.55, 3.3],
-      [-1.62, 3.86],
-      [1.98, 2.36],
-      [6.7, 3.8],
-    ])
-      wall("corridor wall", x, L.corridor.z0 - L.wall / 2, w, L.wall);
-    wall("back room divider", L.backRooms.divider, -9, L.wall, 3.2);
-    box("roof", 0.5, L.height + 0.35, -2.3, 18.6, 0.24, 17.6, M.metal);
-    box("interior ceiling", 0.5, L.height + 0.1, -2.3, 18, 0.1, 17, M.wall);
-    box("shop front fascia", 0.5, L.height + 0.02, 5.24, 18.6, 0.72, 0.3, M.red);
+    wall("east wall", L.floor.east + L.wall / 2, -2.75, L.wall, 16.1);
+    // Actual openings in the shell, not doors placed over solid walls.
+    function wallWithDoors(name, z, x0, x1, openings) {
+      let edge = x0;
+      for (const [x, width] of openings) {
+        const left = x - width / 2, right = x + width / 2;
+        if (left > edge) wall(name, (edge + left) / 2, z, left - edge, L.wall);
+        box(name + " lintel", x, 3.15, z, width, 0.75, L.wall, M.wall);
+        edge = right;
+      }
+      if (edge < x1) wall(name, (edge + x1) / 2, z, x1 - edge, L.wall);
+    }
+    const shellW = L.floor.west - L.wall / 2, shellE = L.floor.east + L.wall / 2;
+    wallWithDoors("rear wall", L.yard, shellW, shellE, [[6.4, 1.5]]);
+    wallWithDoors("sales back wall", L.backRooms.z1, shellW, shellE, [[3.6, 1.4]]);
+    // Office is nested inside the back room. The only public-facing opening
+    // is the stockroom door; this divider has an interior staff doorway.
+    const dividerBottom = L.yard + 0.12, dividerTop = L.backRooms.z1 - 0.12;
+    const officeOpening = -8.45, officeOpeningWidth = 1.4;
+    wall("back room divider", 0, (dividerBottom + officeOpening - officeOpeningWidth / 2) / 2,
+      L.wall, officeOpening - officeOpeningWidth / 2 - dividerBottom);
+    wall("back room divider", 0, (officeOpening + officeOpeningWidth / 2 + dividerTop) / 2,
+      L.wall, dividerTop - officeOpening - officeOpeningWidth / 2);
+    box("roof", shopCx, L.height + 0.35, -2.3, shopW + 1.6, 0.24, 17.6, M.metal);
+    box("interior ceiling", shopCx, L.height + 0.1, -2.3, shopW + 1.0, 0.1, 17, M.wall);
+    box("shop front fascia", shopCx, L.height + 0.02, 5.24, shopW + 1.6, 0.72, 0.3, M.red);
     sign(
       "KUROSE illuminated fascia",
-      0.5,
+      shopCx,
       L.height + 0.02,
       5.41,
       13.4,
@@ -619,19 +657,27 @@
       "#f0ecd2",
     );
 
-    // Storefront glazing. The entrance sits at the front-left corner.
-    const mullions = [-8.1, -6.7, -4.1, -1.6, 0.9, 3.4, 5.9, 9.1];
+    // Storefront glazing, set out from the shell so a wider shop keeps even
+    // mullion spacing instead of needing a hand-matched pane list. The entrance
+    // sits at the front-left corner and its bay is a doorway, not glass.
+    const doorL = L.entrance.x - L.entrance.width / 2 - 0.1,
+      doorR = L.entrance.x + L.entrance.width / 2 + 0.1,
+      glazeW = L.floor.west - 0.1,
+      glazeE = L.floor.east + 0.1,
+      runBays = Math.max(1, Math.round((glazeE - doorR) / 2.5));
+    const mullions = [glazeW, doorL, doorR];
+    for (let i = 1; i <= runBays; i++)
+      mullions.push(doorR + ((glazeE - doorR) * i) / runBays);
     for (const x of mullions)
       box("window mullion", x, 1.95, L.entrance.z, 0.09, 2.25, 0.18, M.metal, true);
-    const panes = [
-      [-7.4, 1.3],
-      [-2.85, 2.4],
-      [-0.35, 2.4],
-      [2.15, 2.4],
-      [4.65, 2.4],
-      [7.5, 3.1],
-    ];
-    W.breachWindow = 4;
+    const panes = [];
+    for (let i = 0; i + 1 < mullions.length; i++) {
+      const a = mullions[i], b = mullions[i + 1];
+      if (a === doorL && b === doorR) continue; // the doorway itself
+      panes.push([(a + b) / 2, b - a - 0.05]);
+    }
+    // The Passenger comes through a pane near the middle of the run.
+    W.breachWindow = Math.floor(panes.length / 2);
     panes.forEach(([x, w], i) => {
       const kick = box(
         "front kick wall " + i,
@@ -735,11 +781,23 @@
     box("sensor led", front.x + 0.07, 3.06, front.z + 0.25, 0.025, 0.025, 0.015, M.redGlow);
 
     // Swing doors -----------------------------------------------------------
-    function swingDoor(id, x, z, width, labelText, height = 2.55, axis = "x") {
+    // The leaf always grows along the pivot's local +x, so the hinge offset and
+    // baseRot have to agree about which way that points. Getting it wrong parks
+    // the leaf in the wall beside the opening instead of filling it, which
+    // reads in game as a doorway you cannot see but still cannot walk through.
+    // hinge "low" hangs the leaf from the lower-coordinate edge of the opening,
+    // "high" from the other, which is how a door is made to swing the far way.
+    function swingDoor(id, x, z, width, labelText, height = 2.55, axis = "x", hinge = "low") {
       const pivot = new B.TransformNode(id + " hinge", scene);
-      const along = axis === "x";
-      pivot.position.set(along ? x - width / 2 : x, 0.22, along ? z : z - width / 2);
-      if (!along) pivot.rotation.y = Math.PI / 2;
+      const along = axis === "x",
+        side = hinge === "high" ? -1 : 1,
+        baseRot = (along ? 0 : Math.PI / 2) + (side < 0 ? Math.PI : 0);
+      pivot.position.set(
+        along ? x - (side * width) / 2 : x,
+        0.22,
+        along ? z : z + (side * width) / 2,
+      );
+      pivot.rotation.y = baseRot;
       const mesh = box(
         id + " panel",
         width / 2,
@@ -775,7 +833,8 @@
         z,
         width,
         axis,
-        baseRot: along ? 0 : Math.PI / 2,
+        baseRot,
+        openSign: -1,
         locked: false,
         co: collider(x, z, along ? width / 2 : 0.09, along ? 0.09 : width / 2, { mesh }),
       };
@@ -785,8 +844,12 @@
       return d;
     }
     W.swingDoor = swingDoor;
-    W.officeDoor = swingDoor("office-door", -4.2, L.corridor.z0, 1.3, "OFFICE");
-    W.stockDoor = swingDoor("stock-door", 3.6, L.corridor.z0, 1.4, "STOCKROOM");
+    W.officeDoor = swingDoor("office-door", 0, officeOpening, 1.4, "OFFICE", 2.55, "z");
+    W.stockDoor = swingDoor("stock-door", 3.6, L.backRooms.z1, 1.4, "STOCKROOM");
+    W.officeDoor.staffOnly = W.stockDoor.staffOnly = true;
+    // Swing it into the office: the stockroom side of this doorway is where the
+    // delivery is stacked, and a leaf opening that way clouts the cartons.
+    W.officeDoor.openSign = 1;
     W.rearDoor = swingDoor("rear-door", 6.4, L.yard, 1.5, "SERVICE EXIT");
 
     // Cashier run -----------------------------------------------------------
@@ -795,8 +858,11 @@
       cz = (C.z0 + C.z1) / 2,
       cw = C.x1 - C.x0,
       cd = C.z1 - C.z0;
+    // Finished height of the till surface. Every fixture on the counter is
+    // placed from this one number so nothing can end up hovering over it.
+    const counterTop = 1.385;
     box("checkout counter", cx, 0.77, cz, cw, 1.08, cd, M.wood, true);
-    box("countertop", cx, 1.34, cz, cw + 0.16, 0.09, cd + 0.08, M.cream);
+    box("countertop", cx, counterTop - 0.045, cz, cw + 0.16, 0.09, cd + 0.08, M.cream);
     box("counter kick rail", C.x0 - 0.04, 0.33, cz, 0.06, 0.06, cd, M.metal);
     sign(
       "checkout number",
@@ -810,17 +876,62 @@
       "#dedeca",
       FACE.nx,
     );
-    // Staff-side equipment. Screens face the attendant lane (+x).
-    const staffFace = FACE.px;
-    const register = box("cash register", 6.5, 1.56, 3.2, 0.56, 0.34, 0.5, M.metal);
-    box("register screen case", 6.52, 1.87, 3.2, 0.5, 0.42, 0.14, M.black);
+    // Enclosed cashier booth: glazing above the counter, a low transaction
+    // hatch, closed front return and a staff door at the back of the lane.
+    const boothGlass = M.glass.clone("cashier safety glass");
+    boothGlass.alpha = 0.19;
+    box("cashier glass", C.x0, 2.38, cz, 0.045, 1.76, cd, boothGlass);
+    for (const z of [C.z0, 1.4, C.z1])
+      box("cashier glazing upright", C.x0, 2.35, z, 0.065, 1.94, 0.065, M.metal);
+    box("cashier glazing top rail", C.x0, 3.28, cz, 0.07, 0.06, cd, M.metal);
+    // Counter collision closes the bottom; the transparent collider also
+    // prevents rays and characters treating the screen as an open passage.
+    collider(C.x0, cz, 0.04, cd / 2, { transparent: true });
+    box("cashier front base", 7.45, 0.79, 4.58, 3.1, 1.14, 0.14, M.wood, true);
+    box("cashier front glass", 7.45, 2.32, 4.58, 3.1, 1.91, 0.04, boothGlass);
+    collider(7.45, 4.58, 1.55, 0.07, { transparent: true });
+    for (const x of [5.9, 7.45, 9.0])
+      box("cashier front frame", x, 2.32, 4.58, 0.06, 1.94, 0.07, M.metal);
+    // A short gate on the east post leaves the counter return enclosed.
+    box("cashier rear glazing", 6.48, 2.35, -0.98, 1.16, 1.9, 0.045, boothGlass);
+    box("cashier rear half wall", 6.48, 0.79, -0.98, 1.16, 1.14, 0.14, M.wood, true);
+    collider(6.48, -0.98, 0.58, 0.07, { transparent: true });
+    wall("cashier gate east return", 8.58, -0.98, 0.84, 0.14);
+    W.staffDoor = swingDoor("staff-door", 7.61, -0.98, 1.1, "STAFF ONLY", 2.8, "x", "high");
+    W.staffDoor.staffOnly = true;
+    // Swing outward toward the sales floor (negative z), away from the raised
+    // platform. The east hinge keeps the open leaf beside the entry lane.
+    W.staffDoor.openSign = -1;
+    W.staffDoor.autoClose = 0;
+    spot("staff-entry", 7.61, -2.05);
+    sign("cashier service hatch", C.x0 - 0.055, 1.64, 3.2, 0.64, 0.15,
+      [{ text: "PAY HERE / お会計", size: 30, y: 0.5 }], "#344b42", "#eee6c6", FACE.nx);
+    // Staff-side equipment. Everything the attendant touches rests on the staff
+    // half of the countertop, so the run reads as one real till: the customer
+    // stands across the counter and the attendant works facing them. Nothing
+    // here may hover — tests/store.cjs drops a ray from each fixture and fails
+    // if it is not standing on the counter.
+    //
+    // Sightline budget: the attendant's eye is at floor + deck + EYE ≈ 2.15 and
+    // a customer's face is around 1.85, so the line of sight crosses the
+    // counter at roughly y 1.90–2.08. Nothing on the staff half is built above
+    // 1.89, which keeps the customer's face clear over the top of the till.
+    const staffFace = FACE.px,
+      staffX = 6.6; // staff half of the 0.95 m counter, at the deck edge
+    // Till, square in front of the attendant and opposite the pass tray.
+    const register = box("cash register", staffX, counterTop + 0.17, 3.2, 0.5, 0.34, 0.46, M.metal);
+    box("register keypad", staffX - 0.03, counterTop + 0.35, 3.2, 0.32, 0.02, 0.28, M.black);
+    // Till screens are small and sit close to the attendant's face, so this one
+    // is kept to about 7° of view. A larger panel here reads as a wall across
+    // the lower half of the frame even when the ray to the customer is clear.
+    box("register display head", staffX + 0.12, counterTop + 0.4, 3.2, 0.16, 0.12, 0.24, M.black);
     W.registerScreen = sign(
       "register display",
-      6.78,
-      1.87,
+      staffX + 0.201,
+      counterTop + 0.4,
       3.2,
-      0.44,
-      0.3,
+      0.22,
+      0.11,
       [
         { text: "KUROSE", size: 30, y: 0.24 },
         { text: "READY", size: 25, y: 0.57 },
@@ -832,16 +943,37 @@
     );
     W.register = register;
     interact("register", register, "Use cash register", "register", {}, 2.5);
-    box("register cash drawer", 6.5, 1.38, 3.2, 0.6, 0.1, 0.54, M.black);
-    const scanner = box("barcode scanner", 6.45, 1.46, 2.45, 0.3, 0.16, 0.32, M.black);
-    box("scanner red glass", 6.45, 1.551, 2.45, 0.22, 0.015, 0.22, M.redGlow);
+    // Drawer front set into the staff face of the counter, under the till.
+    box("register cash drawer", C.x1 + 0.02, 1.19, 3.2, 0.05, 0.17, 0.46, M.black);
+    box("cash drawer handle", C.x1 + 0.055, 1.19, 3.2, 0.025, 0.03, 0.22, M.metal);
+    // Scanner beside the till, where goods are set down before ringing up.
+    const scanner = box("barcode scanner", staffX, counterTop + 0.08, 2.5, 0.3, 0.16, 0.32, M.black);
+    box("scanner red glass", staffX, counterTop + 0.171, 2.5, 0.22, 0.015, 0.22, M.redGlow);
     interact("scanner", scanner, "Scan customer items", "scanner", {}, 2.5);
-    const fuelComputer = box("fuel validation computer", 6.55, 1.44, 0.55, 0.5, 0.5, 0.46, M.black);
+    // Alarm within reach of the till hand, clear of the transaction lane.
+    box("alarm plinth", 6.78, counterTop + 0.09, 3.58, 0.2, 0.18, 0.22, M.metal);
+    const alarm = box("security alarm button", 6.78, counterTop + 0.21, 3.58, 0.14, 0.06, 0.16, M.redGlow);
+    interact("alarm", alarm, "Sound security alarm", "alarm");
+    sign(
+      "alarm label",
+      6.881,
+      counterTop + 0.09,
+      3.58,
+      0.2,
+      0.12,
+      [{ text: "ALARM", size: 44, y: 0.5 }],
+      "#d1c5a1",
+      "#4c2824",
+      staffFace,
+    );
+    // Fuel desk and telephone further down the run, out of the sightline but
+    // still inside the booth, so the attendant never leaves the counter.
+    const fuelComputer = box("fuel validation computer", staffX, counterTop + 0.25, 1.9, 0.46, 0.5, 0.42, M.black);
     W.fuelScreen = sign(
       "fuel computer screen",
-      6.81,
-      1.72,
-      0.55,
+      staffX + 0.231,
+      counterTop + 0.34,
+      1.9,
       0.42,
       0.3,
       [
@@ -854,36 +986,59 @@
       staffFace,
     );
     interact("fuel-terminal", fuelComputer, "Validate fuel amount on computer", "fuel-terminal", {}, 2.6);
-    const phone = box("counter telephone", 6.55, 1.46, 1.35, 0.3, 0.16, 0.36, M.black);
-    box("telephone receiver", 6.55, 1.6, 1.35, 0.11, 0.07, 0.42, M.metal);
+    const phone = box("counter telephone", staffX, counterTop + 0.08, 1.05, 0.3, 0.16, 0.36, M.black);
+    box("telephone receiver", staffX, counterTop + 0.195, 1.05, 0.11, 0.07, 0.42, M.metal);
     interact("phone", phone, "Use telephone", "phone");
     const intercom = box("entrance intercom", 6.6, 1.5, 3.92, 0.2, 0.24, 0.18, M.metal);
     interact("intercom", intercom, "Entrance intercom / door lock", "intercom", {}, 2.6);
-    const alarm = box("security alarm button", 6.72, 1.29, -0.35, 0.14, 0.2, 0.16, M.redGlow);
-    interact("alarm", alarm, "Sound security alarm", "alarm");
-    sign(
-      "alarm label",
-      6.72,
-      1.53,
-      -0.35,
-      0.26,
-      0.17,
-      [{ text: "ALARM", size: 44, y: 0.5 }],
-      "#d1c5a1",
-      "#4c2824",
-      staffFace,
-    );
     // Customer-side surface: bell, pass tray, printed receipt.
     const bell = cyl("counter bell", 6.06, 1.43, 2.45, 0.15, 0.09, M.cream);
     interact("bell", bell, "Ring counter bell", "bell");
     const tray = box("customer pass tray", 6.02, 1.41, 3.2, 0.5, 0.04, 0.62, M.metal);
     box("pass tray lip", 6.02, 1.45, 3.2, 0.54, 0.06, 0.05, M.cream);
     interact("cash-tray", tray, "Take cash from the tray", "cash-tray", {}, 2.6);
-    const printer = box("receipt printer", 6.62, 1.5, 3.86, 0.2, 0.2, 0.26, M.black);
-    const receipt = box("paper receipt", 6.5, 1.62, 3.86, 0.16, 0.015, 0.3, M.cream);
+    // Printer fits between the phone and fuel terminal, clear of the intercom.
+    const printer = box("receipt printer", 6.62, 1.5, 1.48, 0.2, 0.2, 0.26, M.black);
+    const receipt = box("paper receipt", 6.5, 1.62, 1.48, 0.16, 0.015, 0.3, M.cream);
     interact("receipt", receipt, "Read last receipt", "receipt");
     W.counterSpot = spot("counter", 5.35, 3.2);
     W.attendantSpot = spot("attendant", 7.6, 3.2);
+    // Raised staff deck keeps the attendant visibly above the customer side.
+    // The slab, its trim, the tread at the gate and the camera lift in game.js
+    // all come off floorTop and deckRise, so the height the player is raised by
+    // can never drift from the height they can see under their feet.
+    const deckRise = 0.24;
+    W.staffFloorHeight = deckRise;
+    // Leave a level landing inside the outward-opening gate.
+    W.staffDeck = { x0: 6.925, x1: 8.375, z0: 0.4, z1: 4.17 };
+    const DK = W.staffDeck,
+      deckX = (DK.x0 + DK.x1) / 2,
+      deckZ = (DK.z0 + DK.z1) / 2,
+      // Slabs run down into the floor tile so no gap opens under an edge.
+      slab = deckRise + 0.06,
+      treadTop = floorTop + deckRise / 2,
+      tread = deckRise / 2 + 0.06;
+    // A floor slab is visual elevation; it must not behave like a solid wall
+    // in the 2D movement grid, and neither may the tread at the gate.
+    box("raised attendant deck", deckX, floorTop + deckRise - slab / 2, deckZ,
+      DK.x1 - DK.x0, slab, DK.z1 - DK.z0, M.floor);
+    box("raised deck front trim", DK.x0 - 0.005, floorTop + deckRise / 2, deckZ,
+      0.08, deckRise + 0.04, DK.z1 - DK.z0, M.metal);
+    // Half-height tread inside the gate. It sits between the closed panel
+    // and the deck edge, so the outward swing never sweeps through it.
+    box("raised deck step", deckX, treadTop - tread / 2, DK.z0 - 0.085,
+      DK.x1 - DK.x0 - 0.05, tread, 0.17, M.concrete);
+    // Eye height is measured above the surface underfoot, including the tiled
+    // floor itself. Use the same bounds as the visible slab and half step.
+    W.floorElevation = (x, z) => {
+      if (x < L.floor.west || x > L.floor.east || z < L.yard || z > L.floor.front + 0.2)
+        return 0;
+      if (x >= DK.x0 && x <= DK.x1 && z >= DK.z0 && z <= DK.z1)
+        return floorTop + deckRise;
+      if (x >= DK.x0 + 0.025 && x <= DK.x1 - 0.025 && z >= DK.z0 - 0.17 && z < DK.z0)
+        return treadTop;
+      return floorTop;
+    };
 
     // Back counter: hot food, coffee, microwave — behind the attendant.
     const BC = L.backCounter,
@@ -934,15 +1089,15 @@
     );
     sign(
       "staff only notice",
-      L.lane.x0 + 0.02,
-      2.5,
-      -1.4,
+      6.48,
+      1.05,
+      -1.056,
       0.9,
       0.34,
       [{ text: "STAFF ONLY / 関係者以外立入禁止", size: 22, y: 0.5 }],
       "#425447",
       "#d3d7b6",
-      FACE.nx,
+      FACE.nz,
     );
 
     // Merchandising ---------------------------------------------------------
@@ -1006,9 +1161,9 @@
         0,
       );
     }
-    gondola("aisle-1", -5.9, 3.6, 2.0, ["noodles", "curry", "chips", "biscuits", "chocolate", "gum"], "01  即席麺 / INSTANT & SNACKS");
-    gondola("aisle-2", -5.9, 3.6, -0.4, ["bread", "cereal", "peanuts", "mints", "chocolate", "biscuits"], "02  パン / BAKERY & SWEETS");
-    gondola("aisle-3", -5.9, 1.4, -2.8, ["tissues", "batteries", "lighter", "gloves", "wipes", "detergent"], "03  日用品 / DAILY GOODS");
+    gondola("aisle-1", -9.9, 3.6, 2.0, ["noodles", "curry", "ramen", "chips", "biscuits", "crackers"], "01  即席麺 / INSTANT & SNACKS");
+    gondola("aisle-2", -9.9, 3.6, -0.4, ["bread", "cereal", "peanuts", "chocolate", "gum", "mints"], "02  パン / BAKERY & SWEETS");
+    gondola("aisle-3", -9.9, 1.4, -2.8, ["tissues", "wipes", "detergent", "gloves", "oil", "washer"], "03  日用品・カー用品 / HOME & MOTOR");
 
     // Ice cream chest, in line with the end of aisle three.
     box("ice cream chest", 2.6, 0.79, -2.8, 1.9, 1.15, 1.0, M.cream, true);
@@ -1034,70 +1189,88 @@
     );
     interact("freezer", chestTag, "Browse the freezer", "product", { product: products.find((p) => p.id === "chocolate") });
 
-    // Reach-in drink coolers across the whole back wall.
+    // Hollow reach-in refrigerators along the back wall, clear of the stockroom door.
     W.coffeeStockMeshes = [];
     W.stock.coffee = 0;
+    W.fridges = [];
+    W.productFridges = {};
     const coolerIds = [
-      ["coffee", "tea", "water"],
-      ["water", "sports", "juice"],
-      ["soda", "energy", "juice"],
-      ["tea", "water", "sports"],
-      ["milk", "rice", "sandwich"],
-      ["sandwich", "rice", "milk"],
+      ["coffee", "tea", "water"], ["water", "sports", "juice"],
+      ["soda", "energy", "juice"], ["tea", "water", "sports"],
+      ["milk", "rice", "sandwich"], ["sandwich", "rice", "milk"],
+      ["cola", "juice", "pudding"], ["energy", "sports", "soda"],
     ];
-    const coolerTitles = [
-      "コーヒー / COFFEE",
-      "水 / WATER",
-      "炭酸 / SODA",
-      "お茶 / TEA",
-      "冷蔵 / CHILLED",
-      "弁当 / BENTO",
-    ];
-    for (let j = 0; j < 6; j++) {
-      const x = L.coolers.x0 + 1.1 + j * 2.2;
-      box("cooler cabinet " + j, x, 1.45, L.coolers.z, 2.15, 2.5, L.coolers.depth, M.cream, true);
-      box("cooler interior " + j, x, 1.5, L.coolers.z + 0.12, 1.95, 2.05, 0.1, M.dark);
-      box("cooler light " + j, x, 2.56, L.coolers.z + 0.2, 1.9, 0.035, 0.035, M.white);
+    const coolerTitles = ["01 COFFEE", "02 WATER", "03 SODA", "04 TEA", "05 DAIRY",
+      "06 FRESH", "07 COLA", "08 ENERGY"];
+    const coolerCenters = [-7.05, -5.45, -2.65, -1.05, 0.55, 6.1, -10.25, -8.65];
+    const fridgeInside = mat("refrigerator grey liner", "#485953", 0.14);
+    const fridgeGlass = mat("clear refrigerator glazing", "#a9c5c4", 0, 0.07);
+    fridgeGlass.backFaceCulling = false;
+    for (let j = 0; j < coolerCenters.length; j++) {
+      const x = coolerCenters[j], z = L.coolers.z, width = 1.45;
+      // The interior is open: only back, sides, plinth and top are opaque.
+      box("cooler back " + j, x, 1.48, z - 0.37, width, 2.5, 0.09, fridgeInside);
+      for (const side of [-1, 1])
+        box("cooler side " + j, x + side * (width / 2 - 0.045), 1.48, z, 0.09, 2.5, 0.85, M.metal);
+      box("cooler compressor " + j, x, 0.43, z, width, 0.42, 0.85, M.metal);
+      box("cooler top " + j, x, 2.73, z, width, 0.16, 0.85, M.metal);
+      collider(x, z, width / 2, 0.425);
+      for (let v = 0; v < 5; v++)
+        box("compressor vent", x, 0.29 + v * 0.05, z + 0.431, width - 0.2, 0.018, 0.01, M.black);
+      for (const side of [-1, 1])
+        box("cooler LED strip", x + side * 0.62, 1.64, z + 0.22, 0.025, 1.9, 0.025, M.white);
+      const pivot = new B.TransformNode("fridge hinge " + j, scene);
+      pivot.position.set(x - width / 2, 0, z + 0.45);
+      box("cooler glazed door " + j, width / 2, 1.62, 0, width - 0.07, 2.02, 0.022, fridgeGlass, false, pivot);
+      for (const xx of [0.025, width - 0.025])
+        box("fridge door frame", xx, 1.62, 0, 0.045, 2.08, 0.05, M.metal, false, pivot);
+      for (const yy of [0.58, 2.66])
+        box("fridge door cross rail", width / 2, yy, 0, width, 0.045, 0.05, M.metal, false, pivot);
+      box("fridge handle " + j, width - 0.15, 1.65, 0.075, 0.045, 0.63, 0.055, M.cream, false, pivot);
+      const fridge = { id: j, x, z, pivot, open: 0, until: 0, cycles: 0 };
+      W.fridges.push(fridge);
       for (let r = 0; r < 3; r++) {
-        box("cooler shelf", x, 0.72 + r * 0.56, L.coolers.z + 0.22, 2.0, 0.045, 0.42, M.shelf);
-        const id = coolerIds[j][r];
-        const roots = [];
-        for (let k = 0; k < 8; k++)
-          roots.push(W.makeProduct(id, x - 0.86 + k * 0.245, 0.744 + r * 0.56, L.coolers.z + 0.26));
+        const y = 0.73 + r * 0.59;
+        box("cooler wire shelf", x, y, z + 0.04, width - 0.16, 0.035, 0.65, M.shelf);
+        box("cooler price rail", x, y + 0.025, z + 0.38, width - 0.16, 0.065, 0.025, M.cream);
+        const id = coolerIds[j][r], roots = [];
+        for (let depth = 0; depth < 2; depth++)
+          for (let k = 0; k < 6; k++)
+            roots.push(W.makeProduct(id, x - 0.52 + k * 0.205, y + 0.023, z + 0.22 - depth * 0.24));
         const rowMeshes = mergeRow(roots, "cooler stock " + id);
         if (j === 0 && r === 0) {
           W.coffeeStockMeshes.push(...rowMeshes);
           rowMeshes.forEach((m) => m.setEnabled(false));
         }
-        if (!W.itemSpots[id] || j === 0)
-          W.itemSpots[id] = spot("item-" + id, x, L.coolers.z + L.coolers.depth / 2 + 0.95);
+        if (!W.productFridges[id] || j === 0) {
+          W.itemSpots[id] = spot("item-" + id, x + 0.22, z + 1.3);
+          W.productFridges[id] = fridge;
+        }
+        sign("chilled price " + j + r, x, y + 0.015, z + 0.401, 0.54, 0.065,
+          [{ text: "¥" + products.find(p => p.id === id).price + "  ·  COLD", size: 30, y: 0.5 }], "#d8d5bc", "#263c32", FACE.pz);
       }
-      box("cooler glazed door " + j, x, 1.5, L.coolers.z + 0.42, 2.05, 2.1, 0.025, M.glass);
-      box("cooler handle " + j, x + 0.9, 1.5, L.coolers.z + 0.47, 0.035, 0.6, 0.035, M.metal);
-      sign(
-        "cooler header " + j,
-        x,
-        2.82,
-        L.coolers.z + 0.44,
-        2.05,
-        0.24,
-        [{ text: coolerTitles[j], size: 26, y: 0.5 }],
-        "#314e3b",
-        "#d6e0bd",
-        FACE.pz,
-      );
-      const target = box("cooler target " + j, x, 1.5, L.coolers.z + 0.45, 2.0, 2.05, 0.015, M.glass);
+      sign("cooler header " + j, x, 2.85, z + 0.44, width, 0.22,
+        [{ text: coolerTitles[j], size: 28, y: 0.5 }], "#314e3b", "#d6e0bd", FACE.pz);
+      sign("cooler temperature " + j, x + 0.42, 0.49, z + 0.44, 0.25, 0.09,
+        [{ text: "+4°C", size: 36, y: 0.5 }], "#142521", "#8abfac", FACE.pz);
+      const target = box("cooler target " + j, x, 1.5, z + 0.46, width, 2.05, 0.015, M.glass);
       target.visibility = 0;
-      interact(
-        "cooler-" + j,
-        target,
-        j === 0 ? "Restock canned coffee" : "Browse " + coolerTitles[j].split(" / ")[1].toLowerCase(),
-        j === 0 ? "restock" : "product",
-        { product: products.find((p) => p.id === coolerIds[j][0]) },
-        2.6,
-      );
+      interact("cooler-" + j, target, j === 0 ? "Open fridge / restock coffee" : "Open fridge / browse drinks",
+        j === 0 ? "restock" : "product", { product: products.find(p => p.id === coolerIds[j][0]), fridge }, 2.6);
     }
-    W.restockSpot = spot("restock", L.coolers.x0 + 1.1, L.coolers.z + 1.3);
+    W.openFridge = function (fridge, seconds = 2.5) {
+      if (!fridge) return;
+      if (fridge.until <= W.time) fridge.cycles++;
+      fridge.until = Math.max(fridge.until, W.time + seconds);
+    };
+    W.updateFridges = function (dt) {
+      for (const fridge of W.fridges) {
+        const target = W.time < fridge.until ? 1 : 0;
+        fridge.open = B.Scalar.Lerp(fridge.open, target, Math.min(1, dt * 4));
+        fridge.pivot.rotation.y = -fridge.open * 1.32;
+      }
+    };
+    W.restockSpot = spot("restock", coolerCenters[0] + 0.22, L.coolers.z + 1.3);
 
     // Open chilled case on the west wall: rice balls, sandwiches, bento.
     const CH = L.chilled;
@@ -1124,8 +1297,10 @@
       "#d6e0bd",
       FACE.px,
     );
-    for (const id of ["rice", "sandwich"])
+    for (const id of ["rice", "sandwich"]) {
       W.itemSpots[id] = spot("item-" + id, CH.x + CH.depth / 2 + 0.95, (CH.z0 + CH.z1) / 2);
+      delete W.productFridges[id];
+    }
 
     // Magazine rack along the front window.
     const MG = L.magazines;
@@ -1153,12 +1328,12 @@
 
     // Baskets and umbrellas by the door, the way every konbini stocks them.
     for (let i = 0; i < 5; i++) {
-      box("shopping basket rim", -7.2, 0.43 + i * 0.06, 3.6, 0.62, 0.07, 0.42, M.red);
-      box("shopping basket handle", -7.2, 0.67 + i * 0.025, 3.6, 0.04, 0.025, 0.37, M.metal);
+      box("shopping basket rim", -11.2, 0.31 + i * 0.06, 3.6, 0.62, 0.07, 0.42, M.red);
+      box("shopping basket handle", -11.2, 0.36 + i * 0.06, 3.6, 0.04, 0.025, 0.37, M.metal);
     }
-    cyl("umbrella bucket", -7.4, 0.6, 2.3, 0.42, 0.76, M.metal, 12);
+    cyl("umbrella bucket", -11.4, 0.6, 2.3, 0.42, 0.76, M.metal, 12);
     for (let i = 0; i < 5; i++) {
-      const stick = cyl("umbrella shaft", -7.52 + i * 0.06, 1.3, 2.3, 0.025, 1.1, M.cream, 6);
+      const stick = cyl("umbrella shaft", -11.52 + i * 0.06, 1.3, 2.3, 0.025, 1.1, M.cream, 6);
       cyl("folded umbrella", stick.position.x, 1.15, 2.3, 0.07, 0.65, i % 2 ? M.red : M.metal, 6);
     }
 
@@ -1224,12 +1399,12 @@
     box("office chair cushion", -5.6, 0.65, -8.5, 0.55, 0.13, 0.54, M.black);
     box("office chair back", -5.6, 1.0, -8.25, 0.55, 0.67, 0.09, M.black);
     cyl("chair stem", -5.6, 0.4, -8.5, 0.06, 0.5, M.metal);
-    const firstaid = box("first aid box", -3.2, 1.04, -9.5, 0.32, 0.26, 0.26, M.cream);
+    const firstaid = box("first aid box", -3.2, 1.35, -10.34, 0.32, 0.26, 0.26, M.cream);
     sign(
       "first aid cross",
       -3.2,
-      1.04,
-      -9.361,
+      1.35,
+      -10.205,
       0.2,
       0.18,
       [{ text: "+", size: 80, y: 0.5 }],
@@ -1269,25 +1444,32 @@
     W.deliveryMeshes.push(carton);
     interact("coffee-carton", W.deliveryMeshes[0], "Carry coffee delivery", "carton", {}, 2.6);
     spot("delivery", 1.1, -8.4);
-    box("service workbench", 6.4, 0.85, -9.6, 2.2, 0.12, 0.85, M.wood, true);
-    const key = box("brass drawer key", 5.8, 0.932, -9.4, 0.17, 0.02, 0.04, M.yellow);
+    // Bench along the east wall, not across the service exit: the rear door
+    // swings into this room and the delivery has to be carried out past it.
+    const bench = { x: 8.5, z: -9.15, w: 0.78, len: 2.5, top: 0.91 };
+    box("service workbench", bench.x, bench.top - 0.06, bench.z, bench.w, 0.12, bench.len, M.wood, true);
+    for (const lz of [bench.z - bench.len / 2 + 0.22, bench.z + bench.len / 2 - 0.22])
+      for (const lx of [bench.x - bench.w / 2 + 0.1, bench.x + bench.w / 2 - 0.1])
+        box("workbench leg", lx, (bench.top - 0.12) / 2, lz, 0.07, bench.top - 0.12, 0.07, M.metal);
+    box("workbench rail", bench.x, 0.34, bench.z, bench.w - 0.24, 0.05, bench.len - 0.5, M.metal);
+    const key = box("brass drawer key", bench.x - 0.16, bench.top + 0.012, bench.z + 0.82, 0.17, 0.02, 0.04, M.yellow);
     interact("key", key, "Take desk key", "key", {}, 2.2);
-    const fuse = cyl("replacement fuse", 6.4, 0.955, -9.45, 0.055, 0.18, M.cream);
-    fuse.rotation.z = Math.PI / 2;
+    const fuse = cyl("replacement fuse", bench.x + 0.1, bench.top + 0.028, bench.z + 0.15, 0.055, 0.18, M.cream);
+    fuse.rotation.x = Math.PI / 2;
     interact("fuse", fuse, "Take replacement fuse", "fuse");
-    const report = box("maintenance report", 7.1, 0.933, -9.55, 0.37, 0.02, 0.42, M.cream);
+    const report = box("maintenance report", bench.x - 0.06, bench.top + 0.012, bench.z - 0.72, 0.37, 0.02, 0.42, M.cream);
     interact("report", report, "Read emergency report", "report");
-    const rearLatch = box("rear latch", 7.3, 1.43, -10.42, 0.09, 0.2, 0.075, M.metal);
+    const rearLatch = box("rear latch", 7.3, 1.43, -10.443, 0.09, 0.2, 0.075, M.metal);
     interact("latch", rearLatch, "Secure loose rear-door latch", "latch");
-    spot("stockroom", 6.4, -8.6);
+    spot("stockroom", 7.55, -9.15);
     sign(
       "delivery marker",
       3.6,
-      1.9,
-      -7.32,
+      3.15,
+      -5.96,
       1.6,
       0.26,
-      [{ text: "COFFEE → COOLER 01", size: 29, y: 0.5 }],
+      [{ text: "COFFEE ← COOLER 01", size: 29, y: 0.5 }],
       "#ad9564",
       "#283a27",
       FACE.pz,
@@ -1346,7 +1528,7 @@
     );
     for (const ix of L.islands) {
       box("pump island", ix, 0.12, canZ, 2.4, 0.32, 8.2, M.concrete, true);
-      for (const cz of [CA.z0 + 1.2, CA.z1 - 1.2]) {
+      for (const cz of [CA.z0 + 2.6, CA.z1 - 1.2]) {
         box("canopy column", ix, canY / 2, cz, 0.4, canY, 0.4, M.metal, true);
         cyl("column base", ix, 0.3, cz, 0.7, 0.6, M.yellow, 8);
       }
@@ -1448,8 +1630,24 @@
         box("canopy fluorescent", x, canY - 0.16, z, 2.6, 0.04, 0.22, M.white);
 
     // Apron markings, parking, roadside sign, exterior services.
-    for (let i = 0; i < 6; i++)
-      box("parking stripe", -7.6 + i * 2.6, 0.002, 7.8, 0.08, 0.01, 4.6, M.cream);
+    W.parkingBays = [-1.7, 1.2, 4.1, 7.0].map((x, i) => ({ id: i, x, z: 8.4, occupied: null }));
+    for (const bay of W.parkingBays) {
+      for (const side of [-1, 1])
+        box("parking bay stripe", bay.x + side * 1.4, 0.009, bay.z, 0.07, 0.012, 4.8, M.cream);
+      box("parking wheel stop", bay.x, 0.105, 6.25, 1.65, 0.2, 0.2, M.concrete);
+      const number = sign("parking bay number", bay.x, 0.02, 10.4, 0.5, 0.5,
+        [{ text: String(bay.id + 1).padStart(2, "0"), size: 60, y: 0.5 }], "#555e59", "#d4d1b4");
+      number.rotation.x = Math.PI / 2;
+    }
+    // Clearly marked pedestrian route: never allocate a bay across the entrance.
+    for (let z = 6; z < 11; z += 0.5)
+      box("entrance keep clear stripe", L.entrance.x, 0.011, z, 2.5, 0.012, 0.18, M.yellow);
+    W.reserveBay = function (owner) {
+      const bay = W.parkingBays.find(b => !b.occupied);
+      if (bay) bay.occupied = owner;
+      return bay || null;
+    };
+    W.releaseBay = function (bay) { if (bay) bay.occupied = null; };
     for (const [x, z] of [[-4.6, 10.4], [4.6, 10.4]])
       box("island approach chevron", x, 0.002, z, 2.4, 0.01, 0.1, M.yellow);
     box("price sign pole", -15.5, 3.6, 26, 0.24, 7.2, 0.24, M.metal, true);
@@ -1504,12 +1702,12 @@
       "#efe8c8",
       FACE.nx,
     );
-    box("outdoor bench", -9.6, 0.63, 3.4, 0.65, 0.12, 2.2, M.wood, true);
-    for (const z of [2.6, 4.2]) box("bench leg", -9.6, 0.33, z, 0.5, 0.6, 0.08, M.metal);
-    box("ice merchandiser", -9.7, 0.75, 6.4, 1.1, 1.5, 0.8, M.metal, true);
+    box("outdoor bench", -13.6, 0.63, 3.4, 0.65, 0.12, 2.2, M.wood, true);
+    for (const z of [2.6, 4.2]) box("bench leg", -13.6, 0.33, z, 0.5, 0.6, 0.08, M.metal);
+    box("ice merchandiser", -13.7, 0.75, 6.4, 1.1, 1.5, 0.8, M.metal, true);
     sign(
       "ice sign",
-      -9.7,
+      -13.7,
       1.6,
       6.81,
       0.9,
@@ -1521,7 +1719,7 @@
     );
     sign(
       "open sign",
-      -4.1,
+      L.entrance.x + 1.3,
       2.3,
       L.entrance.z + 0.06,
       0.92,
@@ -1620,6 +1818,58 @@
       cable.color = color("#142520");
       cable.isPickable = false;
     }
+    // The station sits on an inhabited mountain road: a drainage channel,
+    // retaining walls, a bus shelter and shuttered buildings beyond the apron.
+    box("drainage channel bed", -21, -0.03, 7, 1.3, 0.08, 40, M.black);
+    for (const x of [-21.8, -20.2])
+      box("drainage concrete bank", x, 0.22, 7, 0.22, 0.45, 40, M.concrete);
+    box("culvert crossing", -21, 0.11, 25, 3.2, 0.23, 5.8, M.concrete);
+    for (let x = -34; x <= 34; x += 3) {
+      box("rear retaining wall", x, 1.0, -19, 2.95, 2.0, 0.8, M.concrete);
+      box("retaining wall coping", x, 2.04, -19, 3, 0.12, 0.96, M.metal);
+      for (let row = 0; row < 3; row++)
+        box("retaining mortar seam", x, 0.4 + row * 0.55, -18.585, 2.95, 0.025, 0.012, M.dark);
+    }
+    const shrubMat = mat("roadside undergrowth", "#334739");
+    for (let i = 0; i < 65; i++) {
+      const side = i % 2 ? -1 : 1, x = side * (24 + rnd() * 10), z = -16 + rnd() * 42;
+      ellipsoid("roadside scrub", x, 0.45, z, 0.7 + rnd(), 0.8 + rnd(), 0.8 + rnd(), shrubMat);
+    }
+    // Low service buildings across the highway stay outside playable bounds.
+    for (const [x, z, width, labelText] of [[-22, 45, 11, "黒瀬自動車 / AUTO REPAIR"], [18, 47, 9, "山路食堂 / YAMAJI DINER"]]) {
+      box("roadside building", x, 2, z, width, 4, 7, M.wall);
+      box("roadside roof", x, 4.15, z, width + 0.7, 0.3, 7.8, M.metal);
+      box("roadside plinth", x, 0.2, z, width + 0.3, 0.4, 7.3, M.concrete);
+      for (const offset of [-2.4, 2.4]) {
+        box("closed roller shutter", x + offset, 1.6, z - 3.53, 3.3, 2.9, 0.08, M.metal);
+        for (let row = 0; row < 15; row++)
+          box("shutter slat", x + offset, 0.3 + row * 0.18, z - 3.585, 3.25, 0.025, 0.015, M.shelf);
+      }
+      sign("roadside business sign", x, 3.5, z - 3.57, width - 0.6, 0.55,
+        [{ text: labelText, size: 30, y: 0.5 }], "#37493f", "#c0b99a", FACE.nz);
+      box("business porch light", x, 3.0, z - 3.8, 0.35, 0.12, 0.2, M.warm);
+    }
+    box("bus shelter roof", 0, 2.9, 40, 5, 0.16, 2.5, M.metal);
+    for (const x of [-2.2, 2.2])
+      box("bus shelter post", x, 1.45, 40.8, 0.09, 2.9, 0.09, M.metal);
+    box("bus shelter back", 0, 1.55, 40.85, 4.4, 2.3, 0.025, M.glass);
+    box("bus shelter bench", 0, 0.55, 40.3, 3.6, 0.12, 0.55, M.wood);
+    for (const x of [-1.5, 0, 1.5])
+      box("bus shelter bench leg", x, 0.245, 40.3, 0.07, 0.5, 0.45, M.metal);
+    cyl("bus stop post", -3, 1.6, 39, 0.07, 3.2, M.metal, 8);
+    sign("last bus timetable", -3, 2.25, 38.94, 0.6, 0.85,
+      [{ text: "黒瀬 / KUROSE", size: 28, y: 0.2 }, { text: "LAST BUS 21:10", size: 23, y: 0.55 }, { text: "ROUTE 17", size: 25, y: 0.8 }], "#b9bea7", "#233d35", FACE.nz);
+    // Layered tree lines frame both sides of the road, rather than a bare plane.
+    for (let i = 0; i < 55; i++) {
+      const x = -65 + rnd() * 130, z = 53 + rnd() * 17, h = 6 + rnd() * 10;
+      cyl("distant cedar trunk", x, h * 0.4, z, 0.3, h * 0.8, M.bark, 5);
+      const crown = B.MeshBuilder.CreateCylinder("distant cedar crown", { diameterTop: 0, diameterBottom: 3 + rnd() * 3, height: h, tessellation: 6 }, scene);
+      crown.position.set(x, h * 0.8, z); crown.material = M.leaf; crown.isPickable = false;
+    }
+    for (const x of [-17, 17]) {
+      cyl("roadside lamp post", x, 3.4, 37.6, 0.12, 6.8, M.metal, 8);
+      box("roadside sodium fixture", x, 6.85, 37.6, 0.65, 0.15, 0.35, M.warm);
+    }
     // Lighting: hard fluorescent pools inside, a cold wet dark everywhere else.
     const hemi = new B.HemisphericLight("night ambient", new V(0, 1, 0), scene);
     hemi.intensity = 0.44;
@@ -1641,7 +1891,11 @@
     light("sales fluorescent east", 4.2, 3.05, 1.2, 1.8, 12, "#e4ecd6");
     light("cooler wall glow", -1.5, 2.4, -4.7, 1.1, 11, "#c6ded0");
     light("counter light", 7.2, 3.05, 2.4, 1.6, 9, "#edf2e0");
-    light("corridor lamp", 1.5, 3.0, -6.8, 0.9, 8, "#c9d3a5");
+    light("bus shelter lamp", 0, 2.6, 39.8, 1.2, 13, "#d5c495");
+    light("repair porch lamp", -22, 3.1, 40.8, 1.4, 16, "#d2ac73");
+    light("diner porch lamp", 18, 3.2, 42.8, 1.2, 16, "#acbdaa");
+    for (const x of [-17, 17]) light("roadside sodium pool", x, 6.5, 37.6, 1.8, 20, "#d4b181");
+    light("stockroom entry lamp", 3.6, 3.0, -7.0, 0.9, 8, "#c9d3a5");
     light("office lamp", -5.6, 3.0, -9, 1.0, 7.5, "#e5d8a0");
     light("stockroom lamp", 5.4, 3.0, -9, 0.95, 8.5, "#c9d3a5");
     light("canopy west", L.islands[0], canY - 0.5, canZ, 1.9, 18, "#dfe9d6");
@@ -1670,7 +1924,7 @@
     }
     box("office fluorescent", -5.6, L.height - 0.005, -9, 1.6, 0.035, 0.16, M.white);
     box("stock fluorescent", 5.4, L.height - 0.005, -9, 1.6, 0.035, 0.16, M.white);
-    box("corridor fluorescent", 1.5, L.height - 0.005, -6.75, 2.2, 0.035, 0.16, M.white);
+    box("stockroom entry fluorescent", 3.6, L.height - 0.005, -7.0, 2.2, 0.035, 0.16, M.white);
 
     // Rain. The texture is generated so file:// launch needs no image assets.
     const rainTexture = new B.DynamicTexture("raindrop", { width: 8, height: 64 }, scene, false),
@@ -1750,9 +2004,13 @@
     W.nav = NAV;
     // A shut door is a doorway, not a wall: whoever arrives will open it. A
     // locked one is a wall, which is what makes locking the entrance matter.
-    W.navBlocked = function (x, z, r) {
+    W.navBlocked = function (x, z, r, staffAllowed = true) {
       if (x < -24 || x > 26 || z < -16 || z > 34) return true;
       for (const c of W.colliders) {
+        if (c.door?.staffOnly && !staffAllowed) {
+          if (Math.abs(x - c.x) < c.hx + r && Math.abs(z - c.z) < c.hz + r) return true;
+          continue;
+        }
         if (!c.enabled || c.car) continue;
         if (c.door && !c.door.locked) continue;
         if (x > c.x - c.hx - r && x < c.x + c.hx + r && z > c.z - c.hz - r && z < c.z + c.hz + r)
@@ -1760,7 +2018,7 @@
       }
       return false;
     };
-    W.findPath = function (start, goal, clearance = NAV.clearance) {
+    W.findPath = function (start, goal, clearance = NAV.clearance, staffAllowed = true) {
       const cell = (x, z) => [
           Math.round((x - NAV.minX) / NAV.step),
           Math.round((z - NAV.minZ) / NAV.step),
@@ -1797,7 +2055,7 @@
             j = a.z + dz;
           if (i < 0 || j < 0 || i >= NAV.w || j >= NAV.h) continue;
           const [wx, wz] = point(i, j);
-          if (W.navBlocked(wx, wz, clearance)) continue;
+          if (W.navBlocked(wx, wz, clearance, staffAllowed)) continue;
           const k = key(i, j),
             g = a.g + 1;
           if (g >= (cost.get(k) ?? Infinity)) continue;
@@ -2156,9 +2414,9 @@
     W.makeNPC = function () {
       const n = baseMakeNPC.apply(this, arguments);
       n.walkTo = function (x, z, done) {
-        const path = W.findPath(this.root.position, { x, z }, 0.24);
-        if (path.length) this.route(path, done);
-        else this.route([[x, z]], done);
+        const path = W.findPath(this.root.position, { x, z }, 0.24, !this.customer || this.threat);
+        if (path.length) { this.retryWalk = null; this.route(path, done); }
+        else { this.walking = false; this.retryWalk = { x, z, done, at: W.time + 1 }; }
         return path.length > 0;
       };
       return n;
@@ -2182,6 +2440,7 @@
     W.update = function (dt, player) {
       W.time += dt;
       const t = W.time;
+      W.updateFridges(dt);
       for (const car of W.cars) {
         if (!car.root.isEnabled()) {
           car.co.enabled = false;
@@ -2251,11 +2510,15 @@
           d.autoClose = 0;
         }
         d.open = B.Scalar.Lerp(d.open, d.target, Math.min(1, dt * 5));
-        d.pivot.rotation.y = (d.baseRot || 0) - d.open * Math.PI * 0.52;
+        d.pivot.rotation.y = (d.baseRot || 0) + (d.openSign || -1) * d.open * Math.PI * 0.52;
         d.co.enabled = d.open < 0.7;
       }
       for (const n of W.npcs) {
         if (!n.active || !n.root.isEnabled()) continue;
+        if (n.retryWalk && t >= n.retryWalk.at) {
+          const { x, z, done } = n.retryWalk;
+          n.walkTo(x, z, done);
+        }
         if (n.walking && n.path.length) {
           const p = n.root.position,
             to = n.path[0],
@@ -2272,7 +2535,7 @@
           const step = waitDoor || playerBlocks ? 0 : dt * n.speed;
           // Anyone who walks up to a shut, unlocked door pushes it open.
           for (const door of W.doors)
-            if (!door.locked && door.target === 0 && Math.hypot(p.x - door.x, p.z - door.z) < 1.2) {
+            if (!door.locked && (!door.staffOnly || !n.customer || n.threat) && door.target === 0 && Math.hypot(p.x - door.x, p.z - door.z) < 1.2) {
               door.target = 1;
               door.autoClose = t + 8;
               if (W.onDoor) W.onDoor();
@@ -2321,7 +2584,7 @@
     if (window.NightStoreOps) window.NightStoreOps.install(W);
     const badSpots = W.auditSpots();
     if (badSpots.length)
-      console.warn("Night Shift: standing positions inside geometry:", badSpots);
+      throw new Error("Standing positions inside geometry: " + badSpots.join(", "));
     return W;
   };
 })();
