@@ -204,12 +204,17 @@ window.NightPrologue = {
       if(P.level&&z<7.3)return 3.42;
       return z<7.3?.23:z<13.5?.24:0;
     };
-    const boss=W.makeNPC('Mr. Kuroda','#697363','#44423b');boss.root.position.set(3.8,.23,4);boss.root.rotation.y=-Math.PI/2;boss.root.setEnabled(false);P.boss=boss;
+    const boss=W.makeNPC('Mr. Kuroda','#697363','#44423b');
+    boss.root.position.set(-5.6,-.02,-8.5);
+    boss.root.rotation.y=Math.PI+.55; // seated at the desk, turned toward the door
+    for(const leg of boss.legs)leg.rotation.x=-1.2;
+    for(const arm of boss.arms)arm.rotation.x=-.4;
+    boss.root.setEnabled(false);P.boss=boss;
     const bossInteraction=W.interactions.find(o=>o.data.npc===boss);bossInteraction.kind='boss';bossInteraction.enabled=false;
     P.setCity=on=>{cityInteractions.forEach(o=>o.enabled=on);P.meshes.forEach(m=>{if(!m.isDisposed())m.setEnabled(on);});};
     P.skip=()=>{P.stage='none';P.setCity(false);boss.root.setEnabled(false);bossInteraction.enabled=false;W.setDaylight(false);};
     P.start=a=>{api=a;P.stage='apartment';P.level=0;P.keys=false;P.dressed=false;P.setCity(true);key.setEnabled(true);screen.setEnabled(false);spray.setEnabled(false);water.setEnabled(false);meal.setEnabled(false);W.setDaylight(true);api.phase('apartment');api.teleport(-105.8,-3.8,Math.PI/2,.04);api.objective('Get ready for your first shift.','Explore your apartment. Work clothes are in the bedroom wardrobe; keys are on the desk.');api.say('NAO','Kuroda asked me to arrive before sunset. I should get ready.',8);};
-    P.arrive=()=>{P.drive=0;P.stage='orientation';P.setCity(false);boss.root.setEnabled(true);bossInteraction.enabled=true;api.phase('orientation');api.teleport(-6.5,8.5,Math.PI,.02);api.audio.engine(false);api.objective('Meet Mr. Kuroda inside.','Your supervisor is waiting by the counter.');api.say('NAO','The station looks different in daylight. Almost ordinary.',7);};
+    P.arrive=()=>{P.drive=0;P.stage='orientation';P.setCity(false);boss.root.setEnabled(true);bossInteraction.enabled=true;api.phase('orientation');api.teleport(-6.5,8.5,Math.PI,.02);api.audio.engine(false);api.objective('Meet Mr. Kuroda in the office.','Through the stockroom door at the back \u2014 the office is inside, on the left.');api.say('KURODA','\u2014 Mori? Back here! Through the stockroom \u2014 the office is on the left!',9);};
     P.talkBoss=()=>{
       const intro=[['KURODA','Nao Mori? You found us. I’m Kuroda. Thanks for coming early. The night shift is quiet, but I want you to know the place before I leave.'],['NAO','I’ve worked a register before. I haven’t worked a fuel desk.'],['KURODA','Then start there. Customers bring their shopping to the tray. Scan each item, validate their pump on the fuel terminal, then take payment. If someone is browsing, let them take their time.'],['KURODA','The stockroom is the door at the back. The office is inside it, on the left. Clock in there when the night shift begins. Keep the original receipts in the drawer.']];
       api.dialogue(boss,intro,()=>topics());
