@@ -56,6 +56,8 @@
     player: { x: -5.4, z: 9.6, yaw: Math.PI, pitch: 0.02 },
   };
   const EYE = 1.68;
+  // Walking field of view, and the tighter one a conversation pulls in to.
+  const BASE_FOV = 1.02, TALK_FOV = 0.74;
   const phases = {
     apartment: ["05:38 PM", "BEFORE THE SHIFT"],
     orientation: ["06:12 PM", "THE DAYLIGHT HANDOVER"],
@@ -211,7 +213,9 @@
     G.focus=null;
     document.body.classList.remove('conversing');
     $('modal').classList.remove('conversation');
-    if(camera)camera.fov=1.02;
+    // No fov snap here. Advancing a line closes and reopens the modal in the
+    // same click, so a reset would restart the push-in on every line; the
+    // render loop eases back out once nothing is focused any more.
     show("modal", false);
     if (G.mode === "playing") setTimeout(capture, 0);
   }
@@ -1985,7 +1989,7 @@
       camera.inputs.clear();
       camera.minZ = 0.07;
       camera.maxZ = 150;
-      camera.fov = 1.02;
+      camera.fov = BASE_FOV;
       securityCamera = new B.FreeCamera(
         "security",
         new V(-8.4, 3.4, 6.4),
@@ -2208,7 +2212,10 @@
           const yaw=Math.atan2(d.x,d.z),pitch=-Math.atan2(d.y,Math.hypot(d.x,d.z));
           camera.rotation.y+=Math.atan2(Math.sin(yaw-camera.rotation.y),Math.cos(yaw-camera.rotation.y))*Math.min(1,dt*5);
           camera.rotation.x=B.Scalar.Lerp(camera.rotation.x,pitch,Math.min(1,dt*5));
-          camera.fov=B.Scalar.Lerp(camera.fov,.74,Math.min(1,dt*3));
+          camera.fov=B.Scalar.Lerp(camera.fov,TALK_FOV,Math.min(1,dt*3));
+        } else if (camera && camera.fov !== BASE_FOV) {
+          camera.fov = B.Scalar.Lerp(camera.fov, BASE_FOV, Math.min(1, dt * 3));
+          if (Math.abs(camera.fov - BASE_FOV) < 0.002) camera.fov = BASE_FOV;
         }
         if (G.look) {
           G.look.update(dt, G.threat ? 1 : G.phase === "siege" ? 0.45 : 0);
