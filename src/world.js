@@ -999,7 +999,10 @@
     const phone = box("counter telephone", staffX, counterTop + 0.08, -0.3, 0.3, 0.16, 0.36, M.black);
     box("telephone receiver", staffX, counterTop + 0.195, -0.3, 0.11, 0.07, 0.42, M.metal);
     interact("phone", phone, "Use telephone", "phone");
-    const intercom = box("entrance intercom", 6.08, 1.5, 4.22, 0.2, 0.24, 0.18, M.metal);
+    const intercom = box("entrance door lock panel", 7.3, 1.06, 4.487, 0.34, 0.3, 0.05, M.metal);
+    box("door lock lamp", 7.41, 1.14, 4.455, 0.05, 0.05, 0.02, M.redGlow);
+    sign("door lock label", 7.3, 0.985, 4.455, 0.3, 0.11,
+      [{ text: "ENTRANCE / 入口", size: 30, y: 0.5 }], "#2c3a31", "#c9d5bd", FACE.nz);
     interact("intercom", intercom, "Entrance intercom / door lock", "intercom", {}, 2.6);
     // Customer-side surface: bell, pass tray, printed receipt.
     const bell = cyl("counter bell", 6.06, 1.43, 2.45, 0.15, 0.09, M.cream);
@@ -1475,6 +1478,48 @@
     const rearLatch = box("rear latch", 7.3, 1.43, -10.443, 0.09, 0.2, 0.075, M.metal);
     interact("latch", rearLatch, "Secure loose rear-door latch", "latch");
     spot("stockroom", 7.55, -9.15);
+    // Cleaning gear in the stockroom corner, and a waste bin by the counter.
+    const mopHandle = cyl("mop handle", 0.7, 0.85, -10.15, 0.035, 1.55, M.wood, 8);
+    mopHandle.rotation.z = 0.22;
+    box("mop head", 0.55, 0.1, -10.13, 0.16, 0.16, 0.12, M.cream);
+    W.mopFixture = interact("mop", mopHandle, "Take the mop", "mop", {}, 2.2);
+    const counterBin = cyl("counter waste bin", 5.55, 0.5, -1.5, 0.5, 0.85, M.metal, 10);
+    const binBag = box("full rubbish bag", 5.55, 1.0, -1.5, 0.52, 0.4, 0.52, M.black);
+    binBag.setEnabled(false);
+    W.binBag = binBag;
+    W.binBagInteraction = interact("bin-bag", binBag, "Take the rubbish bag out back", "bin-bag", {}, 2.2);
+    W.binBagInteraction.enabled = false;
+    // A spill somewhere on the sales floor: a dark sheen the mop shrinks.
+    W.makeSpill = function (x, z) {
+      const p = B.MeshBuilder.CreateDisc("floor spill", { radius: 0.75, tessellation: 18 }, scene);
+      p.rotation.x = Math.PI / 2;
+      p.position.set(x, 0.235, z);
+      p.material = M.puddle;
+      const o = interact("spill", p, "Mop the spill", "spill", {}, 2.3);
+      return { mesh: p, o, wipes: 3 };
+    };
+    // One shelf row runs empty; a marker keeps the gap aimable while the
+    // merged stock mesh is hidden.
+    W.emptyShelfRow = function (id) {
+      const rows = scene.meshes.filter((m) => m.name === "shelf stock " + id && m.isEnabled());
+      if (!rows.length) return null;
+      const row = rows[Math.floor(rnd() * rows.length) % rows.length];
+      row.computeWorldMatrix(true);
+      const b = row.getBoundingInfo().boundingBox;
+      row.setEnabled(false);
+      const gap = box("empty shelf gap", (b.minimumWorld.x + b.maximumWorld.x) / 2,
+        (b.minimumWorld.y + b.maximumWorld.y) / 2, (b.minimumWorld.z + b.maximumWorld.z) / 2,
+        Math.max(0.4, b.maximumWorld.x - b.minimumWorld.x), 0.05,
+        Math.max(0.3, b.maximumWorld.z - b.minimumWorld.z), M.dark);
+      const o = interact("chore-shelf", gap, "Restock the shelf", "chore-shelf", {}, 2.4);
+      return { row, gap, o, id };
+    };
+    // The restock carton waits on the stockroom workbench.
+    const choreBox = box("stock carton", bench.x, bench.top + 0.17, bench.z + 0.45, 0.56, 0.34, 0.4, M.wood);
+    choreBox.setEnabled(false);
+    W.choreBox = choreBox;
+    W.choreBoxInteraction = interact("chore-carton", choreBox, "Carry the stock carton", "chore-carton", {}, 2.4);
+    W.choreBoxInteraction.enabled = false;
     sign(
       "delivery marker",
       3.6,
@@ -1509,6 +1554,7 @@
       FACE.nz,
     );
     const trash = cyl("yard rubbish bin", 9.6, 0.55, -12.1, 0.85, 1.1, M.metal, 12);
+    interact("yard-bin", trash, "Throw the bag in the yard bin", "yard-bin", {}, 2.4);
     collider(9.6, -12.1, 0.45, 0.45);
     interact("trash", trash, "Take out rubbish / inspect yard", "trash");
     box("rear drainage grate", 1.2, 0.1, -12.6, 2.3, 0.1, 0.85, M.black);

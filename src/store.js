@@ -36,6 +36,19 @@
           );
           for (const x of [-0.25, 0.25])
             box("carton folded flap", x, 0.354, 0, 0.06, 0.015, 0.38, M.wood, false, root);
+        } else if (kind === "mop") {
+          const stick = cyl("carried mop handle", 0, 0.55, 0.1, 0.035, 1.5, M.wood, 8, root);
+          stick.rotation.x = 0.5;
+          root.main = box("carried mop head", 0, 0.05, 0.42, 0.16, 0.16, 0.13, M.cream, false, root);
+        } else if (kind === "trashbag") {
+          root.main = box("carried rubbish bag", 0, 0.22, 0, 0.5, 0.42, 0.48, M.black, false, root);
+          box("bag knot", 0, 0.47, 0, 0.1, 0.09, 0.1, M.black, false, root);
+        } else if (kind === "stockbox") {
+          root.main = box("carried stock carton", 0, 0.17, 0, 0.56, 0.34, 0.4, M.wood, false, root);
+          box("stock carton tape", 0, 0.345, 0, 0.07, 0.012, 0.4, M.cream, false, root);
+          sign("carried stock label", 0, 0.17, -0.206, 0.45, 0.21,
+            [{ text: "KUROSE STOCK", size: 34, y: 0.32 }, { text: "SHELF REFILL", size: 20, y: 0.68 }],
+            "#8f8a68", "#26362a", 0, root);
         } else if (kind === "coffee") {
           root.main = cyl("paper coffee cup", 0, 0.12, 0, 0.15, 0.24, M.cream, 12, root);
           cyl("coffee cup lid", 0, 0.248, 0, 0.16, 0.02, M.black, 12, root);
@@ -53,13 +66,14 @@
         if (!carry) return;
         const rig = new B.TransformNode("first-person hands", S);
         rig.parent = camera;
-        rig.position.set(carry.kind === "carton" ? 0.02 : 0.3, -0.55, 0.65);
+        const wide = carry.kind === "carton" || carry.kind === "stockbox" || carry.kind === "trashbag";
+        rig.position.set(wide ? 0.02 : 0.3, -0.55, 0.65);
         const prop = W.makeCarryProp(carry.kind, carry.id);
         prop.parent = rig;
         const skin = W.handMaterial || (W.handMaterial = W.mat("attendant hands", "#b29978"));
         const sleeve = W.sleeveMaterial || (W.sleeveMaterial = W.mat("attendant uniform", "#485747"));
-        for (const side of carry.kind === "carton" ? [-1, 1] : [1]) {
-          const x = side * (carry.kind === "carton" ? 0.27 : 0.065);
+        for (const side of wide ? [-1, 1] : [1]) {
+          const x = side * (wide ? 0.27 : 0.065);
           const arm = cyl("attendant sleeve", x, 0.01, -0.17, 0.13, 0.43, sleeve, 8, rig);
           arm.rotation.x = -0.95;
           const palm = box("attendant hand", x, 0.105, -0.035, 0.095, 0.075, 0.15, skin, false, rig);

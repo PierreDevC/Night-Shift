@@ -144,6 +144,68 @@ const { launch } = require('./helpers/browser.cjs');
       return p.length <= 8 && diagonal > 0;
     }), true, 'Paths are smoothed into walkable diagonals');
 
+    // Between-customer chores: mop, trash run, shelf refill. Each is driven
+    // through its real interaction chain, and the scheduler must stay silent
+    // in deterministic runs (ambient disabled) so story tests never race it.
+    assert.deepEqual(await evaluate(() => {
+      const d = __nightShift, W = d.W, out = {};
+      const before = d.G.choresDone || 0;
+      d.G.trafficRandom = () => 0.1; // deterministic spill spot and shelf line
+      d.startChore('mop');
+      d.interact('mop');
+      for (let i = 0; i < 3; i++) d.interact('spill');
+      d.interact('mop');
+      out.mop = !d.G.chore && !d.G.carry;
+      d.startChore('trash');
+      d.interact('bin-bag');
+      out.carriedBag = d.G.held === 'RUBBISH BAG';
+      d.interact('yard-bin');
+      out.trash = !d.G.chore && !d.G.carry;
+      d.startChore('restock');
+      const gap = d.G.chore.gap;
+      d.interact('chore-shelf');
+      out.refusesEmptyHands = !!d.G.chore;
+      d.interact('chore-carton');
+      d.interact('chore-shelf');
+      out.restock = !d.G.chore && gap.row.isEnabled();
+      out.count = (d.G.choresDone || 0) - before;
+      d.G.ambientEnabled = false; d.G.nextChore = 0; d.tick(120);
+      out.gated = !d.G.chore;
+      return out;
+    }), { mop: true, carriedBag: true, trash: true, refusesEmptyHands: true,
+      restock: true, count: 3, gated: true },
+      'Chores run through their interaction chains and stay out of scripted tests');
+
+    // Stamina and jumping: sprinting drains, winded means walking pace until
+    // real recovery, and a jump arcs the camera up and back down.
+    assert.deepEqual(await evaluate(() => {
+      const d = __nightShift, out = {};
+      // Winded pace first, on a verified-clear line; the drain loop after can
+      // end wherever it likes, including against a pump island.
+      d.teleport(-20, 16, Math.PI / 2, 0);
+      d.G.stamina = 0; d.G.winded = true;
+      d.keys.add('KeyW'); d.keys.add('ShiftLeft');
+      const x0 = d.G.player.x;
+      for (let i = 0; i < 10; i++) d.updatePlayer(0.1);
+      out.windedWalks = Math.abs((d.G.player.x - x0) - 2.2) < 0.2;
+      d.teleport(-20, 16, Math.PI / 2, 0);
+      d.G.stamina = 100; d.G.winded = false;
+      let steps = 0;
+      while (d.G.stamina > 0 && steps++ < 200) d.updatePlayer(0.1);
+      out.drains = steps < 200 && d.G.winded;
+      d.keys.delete('KeyW'); d.keys.delete('ShiftLeft');
+      while (d.G.winded) d.updatePlayer(0.1);
+      out.recovers = d.G.stamina >= 30;
+      const y = d.getCamera().position.y;
+      d.tryJump();
+      let peak = y;
+      for (let i = 0; i < 40; i++) { d.updatePlayer(1 / 30); peak = Math.max(peak, d.getCamera().position.y); }
+      out.jumps = peak - y > 0.3 && d.G.jumpY === 0;
+      d.G.stamina = 100; d.G.winded = false;
+      return out;
+    }), { drains: true, windedWalks: true, recovers: true, jumps: true },
+      'Stamina drains, gates sprinting, recovers; jumping arcs and lands');
+
     // Tape-only presence: the stalker thread depends on a body the security
     // cameras draw and the player's own eyes do not. Assert the layer masks
     // actually intersect that way rather than trusting the constant, and that
@@ -184,7 +246,7 @@ const { launch } = require('./helpers/browser.cjs');
       const W = __nightShift.W, B = window.BABYLON, floating = [];
       const resting = ['cash register', 'register display head', 'barcode scanner',
         'fuel validation computer', 'counter telephone', 'alarm plinth',
-        'entrance intercom', 'receipt printer', 'counter bell', 'customer pass tray'];
+        'receipt printer', 'counter bell', 'customer pass tray'];
       for (const name of resting) {
         const m = W.scene.meshes.find(m => m.name === name);
         if (!m) { floating.push(name + ' (missing)'); continue; }
@@ -216,7 +278,7 @@ const { launch } = require('./helpers/browser.cjs');
     assert.deepEqual(await evaluate(() => {
       const scene = __nightShift.scene, overlaps = [];
       const fixtures = ['cash register', 'barcode scanner', 'fuel validation computer',
-        'counter telephone', 'alarm plinth', 'entrance intercom', 'receipt printer'];
+        'counter telephone', 'alarm plinth', 'entrance door lock panel', 'receipt printer'];
       for (let i = 0; i < fixtures.length; i++) {
         const a = scene.getMeshByName(fixtures[i]);
         a.computeWorldMatrix(true);
@@ -363,6 +425,22 @@ const { launch } = require('./helpers/browser.cjs');
       if (!current) continue;
       if (current.id === 'katagiri') {
         assert.deepEqual(await evaluate(() => __nightShift.G.customer.order), ['tape', 'batteries'], 'He buys tape and batteries');
+        // Ring the alarm in his face: everyone reacts to that sound — except
+        // him. The non-reaction is recorded as evidence and Kuroda hears of it.
+        assert.deepEqual(await evaluate(() => {
+          const d = __nightShift;
+          d.interact('alarm');
+          const out = {
+            falseAlarm: !!d.G.flags.falseAlarm,
+            noted: d.G.journal.some(j => (j.title || '').includes('did not look up')),
+            noModal: !d.G.modal,
+          };
+          d.interact('phone');
+          out.kurodaCalls = d.G.modal && !!d.G.flags.falseAlarmCall;
+          d.closeModal();
+          return out;
+        }), { falseAlarm: true, noted: true, noModal: true, kurodaCalls: true },
+          'Katagiri ignores the alarm; Kuroda phones about the false alarm');
         sawKatagiri = true;
       }
       await evaluate(() => { __nightShift.G.flags.noodlesHeated = true;

@@ -35,6 +35,10 @@
     serial: 0,
     scan: 0,
     torch: false,
+    stamina: 100,
+    winded: false,
+    jumpY: 0,
+    jumpV: 0,
     cctv: false,
     modal: false,
     started: false,
@@ -280,6 +284,11 @@
     G.grace = 6;
     G.mode = "playing";
     $("health-bar").style.width = "100%";
+    $("health-bar").classList.remove("low");
+    G.stamina = 100;
+    G.winded = false;
+    G.jumpY = 0;
+    G.jumpV = 0;
     $("damage").style.opacity = "0";
     const safe = W.spots.office;
     G.player.x = safe[0];
@@ -347,7 +356,7 @@
     openModal(
       "YOUR EXPERIENCE",
       "Settings & controls",
-      `<div class="setting"><label for="volume">Master volume</label><input id="volume" type="range" min="0" max="1" step=".05" value="${G.settings.volume}"></div><div class="setting"><label for="sensitivity">Mouse sensitivity</label><input id="sensitivity" type="range" min=".3" max="2" step=".1" value="${G.settings.sensitivity}"></div><div class="setting"><label for="grain-setting">VHS camcorder look</label><input id="grain-setting" type="checkbox" ${G.settings.grain ? "checked" : ""}></div><div class="setting"><label for="bob-setting">Head movement</label><input id="bob-setting" type="checkbox" ${G.settings.bob ? "checked" : ""}></div><div class="setting"><label for="fps-setting">FPS counter</label><input id="fps-setting" type="checkbox" ${G.settings.fps ? "checked" : ""}></div><div class="setting"><label for="quality-setting">Graphics</label><select id="quality-setting"><option value="balanced">Balanced</option><option value="crisp">Crisp</option><option value="low">Low</option></select></div><p style="margin-top:18px"><b>WASD</b> walk · <b>Shift</b> hurry · <b>E</b> interact<br><b>F</b> flashlight · <b>G</b> set down item<br><b>Tab</b> journal · <b>Esc</b> pause<br><b>H</b> use first aid · <b>R</b> use road flare</p><p>Desktop keyboard and mouse required. Contains pursuit, sudden sounds, and breakable glass. Grain and head movement are optional.</p>`,
+      `<div class="setting"><label for="volume">Master volume</label><input id="volume" type="range" min="0" max="1" step=".05" value="${G.settings.volume}"></div><div class="setting"><label for="sensitivity">Mouse sensitivity</label><input id="sensitivity" type="range" min=".3" max="2" step=".1" value="${G.settings.sensitivity}"></div><div class="setting"><label for="grain-setting">VHS camcorder look</label><input id="grain-setting" type="checkbox" ${G.settings.grain ? "checked" : ""}></div><div class="setting"><label for="bob-setting">Head movement</label><input id="bob-setting" type="checkbox" ${G.settings.bob ? "checked" : ""}></div><div class="setting"><label for="fps-setting">FPS counter</label><input id="fps-setting" type="checkbox" ${G.settings.fps ? "checked" : ""}></div><div class="setting"><label for="quality-setting">Graphics</label><select id="quality-setting"><option value="balanced">Balanced</option><option value="crisp">Crisp</option><option value="low">Low</option></select></div><p style="margin-top:18px"><b>WASD</b> walk · <b>Shift</b> sprint (drains stamina) · <b>Space</b> jump · <b>E</b> interact<br><b>F</b> flashlight · <b>G</b> set down item<br><b>Tab</b> journal · <b>Esc</b> pause<br><b>H</b> use first aid · <b>R</b> use road flare</p><p>Desktop keyboard and mouse required. Contains pursuit, sudden sounds, and breakable glass. Grain and head movement are optional.</p>`,
       [
         [
           back === "menu" ? "Back" : "Return to shift",
@@ -494,6 +503,57 @@
       c.npc.walkTo(x, z, () => { c.npc.root.rotation.y = Math.PI / 2; });
     });
   }
+  // -----------------------------------------------------------------------
+  // Chores. A petrol station at night is mostly maintenance with customers in
+  // between, so the quiet gaps hand out small real jobs: mop what the rain
+  // tracked in, refill a shelf from the stockroom, take the counter bag out
+  // to the yard. Each one uses the same carry/walk machinery as the story and
+  // the trash run walks the player through the rear door on purpose.
+  // -----------------------------------------------------------------------
+  const CHORE_SPILLS = [[-8.6, 3.0], [0, 0.9], [-2.2, -3.9]];
+  // Gondola lines only: drinks live in the coolers and have no shelf row.
+  const CHORE_SHELF_IDS = ["chips", "noodles", "crackers", "biscuits", "tissues", "cereal"];
+  function startChore(type) {
+    if (G.chore) return null;
+    if (!G.choreBag || !G.choreBag.length)
+      G.choreBag = ["mop", "trash", "restock"].sort(() => G.trafficRandom() - 0.5);
+    type = type || G.choreBag.pop();
+    if (type === "mop") {
+      const [x, z] = CHORE_SPILLS[Math.floor(G.trafficRandom() * CHORE_SPILLS.length) % CHORE_SPILLS.length];
+      G.chore = { type, spill: W.makeSpill(x, z) };
+      toast("Rainwater has been tracked across the floor. The mop is in the stockroom.");
+    } else if (type === "trash") {
+      W.binBag.setEnabled(true);
+      W.binBagInteraction.enabled = true;
+      G.chore = { type };
+      toast("The counter bin is overflowing. Take the bag to the yard bin out back.");
+    } else {
+      const id = CHORE_SHELF_IDS[Math.floor(G.trafficRandom() * CHORE_SHELF_IDS.length) % CHORE_SHELF_IDS.length];
+      const gap = W.emptyShelfRow(id);
+      if (!gap) { G.nextChore = G.elapsed + 30; return null; }
+      W.choreBox.setEnabled(true);
+      W.choreBoxInteraction.enabled = true;
+      G.chore = { type: "restock", gap };
+      toast("The " + (W.products.find((p) => p.id === id)?.name.toLowerCase() || id) +
+        " shelf is running empty. A stock carton is on the workbench.");
+    }
+    audio.play("paper");
+    return G.chore;
+  }
+  function choreDone(message) {
+    G.choresDone = (G.choresDone || 0) + 1;
+    G.chore = null;
+    G.nextChore = G.elapsed + 40 + G.trafficRandom() * 45;
+    toast(message);
+    audio.play("switch");
+  }
+  function updateChores() {
+    if (!G.ambientEnabled || !ordinaryPhases.has(G.phase) || G.pendingStory || G.threat || G.chore) return;
+    if (!G.nextChore) { G.nextChore = G.elapsed + 26 + G.trafficRandom() * 30; return; }
+    if (G.elapsed < G.nextChore) return;
+    if (G.customer && G.customer.state === "waiting") return;
+    startChore();
+  }
   function updateTraffic() {
     if (!G.ambientEnabled || !ordinaryPhases.has(G.phase) || G.pendingStory === "shibata") return;
     if (G.elapsed < G.nextAmbient) return;
@@ -616,13 +676,9 @@
         item.scaling.set(0.78, 0.78, 0.78);
         item.productId = id;
         c.carriedItems.push(item);
+        // No announcement: the item visibly rides in their hands, and what
+        // they chose is discovered at the till, the way it would be.
         audio.play("paper");
-        if (!c.ambient) toast(
-          customerPerson(c).name +
-            " picked up " +
-            W.products.find((p) => p.id === id).name.toLowerCase() +
-            ".",
-        );
         index++;
         later(0.65, next);
         });
@@ -1019,7 +1075,69 @@
       G.threat.stunned = 4;
       G.alarmReady = G.elapsed + 16;
       toast("The Passenger recoils. Move now.");
-    } else toast("Security alarm tested.");
+    } else {
+      // No threat: the alarm is just terribly loud in a small shop at night,
+      // and every ordinary person in it behaves like one. Who does NOT react
+      // is the plot doing its work.
+      let reacted = false;
+      for (const c of G.shoppers) {
+        const n = c.npc;
+        if (!n?.active || !n.root.isEnabled()) continue;
+        // Everyone flinches toward the counter; the walk loop eases them back.
+        const at = W.spots.attendant;
+        n.root.rotation.y = Math.atan2(at[0] - n.root.position.x, at[1] - n.root.position.z);
+      }
+      const c = G.customer, n = c?.npc;
+      if (n?.active && n.root.isEnabled() && c.state !== "leaving") {
+        reacted = true;
+        G.flags.falseAlarm = true;
+        if (c.id === "shibata" || c.id === "mimic") {
+          say("NAO", "The alarm is screaming. He has not moved at all.", 6);
+          if (!G.flags.alarmUnmoved) {
+            G.flags.alarmUnmoved = true;
+            journal(
+              "He did not flinch",
+              "I set off the alarm with him at the counter. Everyone tonight jumps at the door chime. He did not even blink.",
+            );
+          }
+        } else if (c.person?.katagiri) {
+          say("NAO", "Mr. Katagiri did not look up from counting his change.", 6);
+          if (!G.flags.alarmKatagiri) {
+            G.flags.alarmKatagiri = true;
+            journal(
+              "He did not look up",
+              "The alarm went off half a metre from Mr. Katagiri. He kept counting coins. Everyone looks up.",
+            );
+          }
+        } else {
+          const lines = {
+            emi: [["EMI", "—! Was that necessary? You scared me halfway onto the road."],
+              ["NAO", "Sorry. Wrong switch. First night."],
+              ["EMI", "Test it on an empty shop, then. This road rattles people enough on its own."]],
+            daichi: [["DAICHI", "WHOA—! Nearly wore the noodles."],
+              ["NAO", "Sorry — wrong button."],
+              ["DAICHI", "At the depot that sound means run. Don't teach it to mean nothing out here."]],
+            hasegawa: [["MRS. HASEGAWA", "That bell. Kurose rang it the night— back when the old pumps were still in."],
+              ["NAO", "It's only the security alarm, ma'am."],
+              ["MRS. HASEGAWA", "I know exactly what it is, dear. I had hoped never to hear it again."]],
+            ryo: [["RYO", "Why did you do that?! Did you see him? Is he outside?!"],
+              ["NAO", "No — no. It was a mistake."],
+              ["RYO", "Then don't. Don't call anything toward us."]],
+          }[c.id];
+          if (lines) {
+            dialogue(n, lines);
+            if (c.id === "hasegawa" && !G.flags.alarmHasegawa) {
+              G.flags.alarmHasegawa = true;
+              journal(
+                "The alarm, before",
+                "Mrs. Hasegawa flinched like it was another decade. \u201cKurose rang it the night\u2014\u201d She would not finish the sentence.",
+              );
+            }
+          } else say(customerPerson(c).name, "\u2026Was that entirely necessary?", 5);
+        }
+      }
+      if (!reacted) toast("Security alarm tested.");
+    }
   }
   function spawnThreat(x, z) {
     const n = W.makeNPC("The Passenger", "#444b40", "#222920");
@@ -1390,6 +1508,62 @@
         audio.play("door");
         break;
       }
+      case "mop":
+        if (G.carry?.kind === "mop") {
+          if (G.chore?.type === "mop" && G.chore.spill) { toast("The spill is still wet."); break; }
+          G.carry = null; G.held = null; held();
+          o.mesh.setEnabled(true);
+          scene.getMeshByName("mop head")?.setEnabled(true);
+          audio.play("switch");
+          if (G.chore?.type === "mop") choreDone("Mop back in its corner. The floor is dry.");
+          else toast("You lean the mop back in its corner.");
+          break;
+        }
+        if (!takeCarry("mop", null, "Mop")) break;
+        o.mesh.setEnabled(false);
+        scene.getMeshByName("mop head")?.setEnabled(false);
+        break;
+      case "spill": {
+        if (G.carry?.kind !== "mop") { toast("You need the mop from the stockroom."); break; }
+        const sp = G.chore?.spill;
+        if (!sp || sp.mesh !== o.mesh) break;
+        sp.wipes--;
+        audio.play("paper");
+        if (sp.wipes > 0) { sp.mesh.scaling.scaleInPlace(0.62); break; }
+        sp.mesh.dispose();
+        sp.o.enabled = false;
+        G.chore.spill = null;
+        toast("Floor dried. Lean the mop back in the stockroom.");
+        break;
+      }
+      case "bin-bag":
+        if (!takeCarry("trashbag", null, "Rubbish bag")) break;
+        W.binBag.setEnabled(false);
+        W.binBagInteraction.enabled = false;
+        break;
+      case "yard-bin":
+        if (G.carry?.kind === "trashbag") {
+          G.carry = null; G.held = null; held();
+          if (G.chore?.type === "trash") choreDone("The bag lands in the yard bin. The rain keeps falling.");
+          else toast("The bag lands in the yard bin.");
+        } else toast("The yard bin smells of rain and old oil.");
+        break;
+      case "chore-carton":
+        if (!takeCarry("stockbox", null, "Stock carton")) break;
+        W.choreBox.setEnabled(false);
+        W.choreBoxInteraction.enabled = false;
+        break;
+      case "chore-shelf": {
+        if (G.carry?.kind !== "stockbox") { toast("You need the stock carton from the workbench."); break; }
+        const gap = G.chore?.gap;
+        if (!gap || gap.gap !== o.mesh) break;
+        gap.row.setEnabled(true);
+        gap.gap.dispose();
+        gap.o.enabled = false;
+        G.carry = null; G.held = null; held();
+        choreDone("Shelf refilled and faced up.");
+        break;
+      }
       case "timeclock":
         if(W.prologue.stage==='orientation'){toast('Speak to Mr. Kuroda before beginning your night shift.');break;}
         if (!G.flags.clocked) {
@@ -1604,6 +1778,14 @@
             "INCOMING CALL / KURODA",
             "Close early.",
             `<p>“Put every receipt in the disposal bag. Leave it beside Four. Then clock out.”</p><p>You ask about Aki.</p><p>For several seconds, you hear rain at the other end.</p><blockquote>Just finish the transaction, Nao.</blockquote><p>The line goes dead.</p>`,
+          );
+        } else if (G.flags.falseAlarm && !G.flags.falseAlarmCall && ordinaryPhases.has(G.phase)) {
+          G.flags.falseAlarmCall = true;
+          audio.play("phone");
+          openModal(
+            "INCOMING CALL / KURODA",
+            "The panel rings through to my house.",
+            `<p>\u201cThe alarm panel rings through to my house, Nao. I was halfway to my boots.\u201d</p><p>You apologise. Rain crackles on the line.</p><blockquote>Use it when you mean it. Out here, nobody comes the second time.</blockquote>`,
           );
         } else {
           audio.play("phone");
@@ -1922,7 +2104,7 @@
     const distance = Math.hypot(p.x - pos.x, p.z - pos.z);
     const sees = canSee(pos, p);
     if (sees && distance < 19) n.lastKnown = { x: p.x, z: p.z };
-    if (G.moving && distance < (keys.has("ShiftLeft") ? 14 : 7))
+    if (G.moving && distance < (G.sprinting ? 14 : 7))
       n.lastKnown = { x: p.x, z: p.z };
     G.navTimer -= dt;
     if (G.navTimer <= 0) {
@@ -1961,6 +2143,7 @@
     show("prompt", false);
     $("crosshair").classList.remove("active");
     if (G.modal || G.cctv || G.mode !== "playing") return;
+    if (W.prologue?.stage === "driving") return; // hands on the wheel
     const ray = camera.getForwardRay(3.5);
     let best = null;
     for (const o of W.interactions) {
@@ -2009,6 +2192,14 @@
     show("prompt");
     $("crosshair").classList.add("active");
   }
+  function tryJump() {
+    if (G.mode !== "playing" || G.modal || G.cctv || G.jumpY > 0 || G.jumpV) return;
+    if (W.prologue?.stage === "driving") return;
+    if (G.stamina < 10) { toast("Too winded to jump."); return; }
+    G.stamina -= 10;
+    G.jumpV = 3.3;
+    audio.play("step");
+  }
   function updatePlayer(dt) {
     const p = G.player;
     const forward = (keys.has("KeyW") ? 1 : 0) - (keys.has("KeyS") ? 1 : 0),
@@ -2016,8 +2207,30 @@
     let dx = Math.sin(p.yaw) * forward + Math.cos(p.yaw) * side,
       dz = Math.cos(p.yaw) * forward - Math.sin(p.yaw) * side;
     const len = Math.hypot(dx, dz),
-      sprint = keys.has("ShiftLeft") || keys.has("ShiftRight");
+      wantSprint = keys.has("ShiftLeft") || keys.has("ShiftRight"),
+      sprint = wantSprint && len > 0 && !G.winded && G.stamina > 0;
     G.moving = len > 0;
+    G.sprinting = sprint;
+    // Stamina: sprinting spends it, everything else slowly buys it back, and
+    // running dry means walking until you have genuinely caught your breath.
+    if (sprint) G.stamina = Math.max(0, G.stamina - 20 * dt);
+    else G.stamina = Math.min(100, G.stamina + 12 * dt);
+    if (G.stamina <= 0) G.winded = true;
+    if (G.winded && G.stamina >= 30) G.winded = false;
+    const staminaBar = $("stamina-bar");
+    staminaBar.style.width = G.stamina + "%";
+    staminaBar.classList.toggle("winded", G.winded);
+    $("health-bar").classList.toggle("low", G.health <= 35);
+    // Jumping: a small hop with real gravity on the camera height.
+    if (G.jumpV || G.jumpY > 0) {
+      G.jumpY += G.jumpV * dt;
+      G.jumpV -= 10.5 * dt;
+      if (G.jumpY <= 0) {
+        G.jumpY = 0;
+        G.jumpV = 0;
+        audio.play("step");
+      }
+    }
     if (len) {
       let speed = (sprint ? 3.55 : 2.2) * dt;
       dx = (dx / len) * speed;
@@ -2050,7 +2263,7 @@
       ? (moving ? Math.sin(t * (sprint ? 6.2 : 4.7) + 0.4) * 0.018 : Math.sin(t * 0.52) * 0.008)
       : 0;
     // Match the visible floor, half step and cashier platform underfoot.
-    camera.position.set(p.x, EYE + W.floorElevation(p.x, p.z) + bob + breathe, p.z);
+    camera.position.set(p.x, EYE + W.floorElevation(p.x, p.z) + G.jumpY + bob + breathe, p.z);
     camera.rotation.set(p.pitch + swayY, p.yaw + swayX, roll);
     W.torch.position.copyFrom(camera.position);
     W.torch.direction.copyFrom(camera.getForwardRay().direction);
@@ -2202,6 +2415,7 @@
         }
         if (G.modal) return;
         if (e.code === "KeyE") interact(G.interact);
+        if (e.code === "Space") tryJump();
         if (e.code === "KeyG") dropCarry();
         if (e.code === "KeyF") {
           G.torch = !G.torch;
@@ -2297,6 +2511,7 @@
           }
           W.update(dt, G.player);
           updateTraffic();
+          updateChores();
           audio.update(
             G.player.z < 5.2 && G.player.z > -9.1 && Math.abs(G.player.x) < 7,
             W.power,
@@ -2373,6 +2588,10 @@
           spawnWalkIn,
           spawnKatagiri,
           setCam,
+          startChore,
+          tryJump,
+          updatePlayer,
+          keys,
           advanceQueue,
           phase,
           beginSiege,
@@ -2394,6 +2613,7 @@
               });
               W.update(0.05, G.player);
               updateTraffic();
+          updateChores();
             }
           },
           teleport(x, z, yaw = 0, pitch = 0) {

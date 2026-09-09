@@ -382,27 +382,58 @@ kbd {
 .controls kbd {
   margin-right: 4px;
 }
-#health-wrap {
-  width: 100px;
+#health-wrap,
+#stamina-wrap {
+  width: 150px;
   text-align: right;
 }
-#health-wrap > span {
-  font: 8px monospace;
-  letter-spacing: 1.5px;
-  color: #acb8a7;
+#health-wrap > span,
+#stamina-wrap > span {
+  font: 10px monospace;
+  letter-spacing: 1.6px;
+  color: #cfdcc6;
+  text-shadow: 0 1px 3px #000c;
 }
-#health-wrap i {
-  margin-top: 6px;
+#health-wrap i,
+#stamina-wrap i {
+  margin-top: 5px;
   display: block;
-  background: #4c564755;
-  height: 3px;
+  background: #10160f99;
+  border: 1px solid #aebfa422;
+  height: 8px;
+  padding: 1px;
+}
+#stamina-wrap {
+  margin-top: 7px;
+}
+#stamina-wrap i {
+  height: 6px;
 }
 #health-bar {
   height: 100%;
   width: 100%;
   display: block;
-  background: var(--accent);
+  background: linear-gradient(90deg, #6f9e62, #a7d18f);
+  box-shadow: 0 0 7px #a7d18f55;
   transition: width 0.3s;
+}
+#health-bar.low {
+  background: linear-gradient(90deg, #8a3d31, #cf6a52);
+  box-shadow: 0 0 9px #cf6a5288;
+  animation: health-pulse 1.1s infinite;
+}
+@keyframes health-pulse {
+  50% { opacity: 0.55; }
+}
+#stamina-bar {
+  height: 100%;
+  width: 100%;
+  display: block;
+  background: linear-gradient(90deg, #a89f5e, #d8cf8b);
+  transition: width 0.15s linear;
+}
+#stamina-bar.winded {
+  background: #7d6a4d;
 }
 #toast {
   position: absolute;
@@ -872,7 +903,7 @@ h1 {font-family:NightTitle,Georgia,serif;font-size:clamp(64px,8vw,120px);font-we
 #checkout {top:65px;right:30px;width:215px;background:linear-gradient(90deg,transparent,#060907bb);border:0;padding:12px 16px;}
 #order-lines>div {font:14px/1.75 NightText,sans-serif;}#order-help {font:14px NightText,sans-serif;}
 #checkout.distant {display:none;}
-#health-wrap {opacity:.55;}#held {font:13px NightText,sans-serif;}#held .item-icon {display:none;}
+#health-wrap,#stamina-wrap {opacity:.95;}#held {font:13px NightText,sans-serif;}#held .item-icon {display:none;}
 .speaking #objective,.speaking #toast,.speaking #checkout,.speaking .hud-bottom,.conversing #hud,.conversing #camcorder {opacity:0;pointer-events:none;}
 #modal {align-items:center;justify-content:center;}
 #modal article {border:0;box-shadow:none;background:linear-gradient(110deg,#101411f2,#080c0af2);width:min(760px,88vw);max-width:none;padding:38px 44px;max-height:84vh;}

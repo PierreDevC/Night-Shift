@@ -177,9 +177,12 @@ window.NightPrologue = {
       actions.set(o.id,()=>api.dialogue(n,[[name,name==='Mrs. Ito'?'Off to work already? There’s rain coming from the mountains.':'The number seventeen bus is late again.'],['NAO','First shift at Kurose Service.'],[name,name==='Mrs. Ito'?'Come home safely, Nao. I’ll leave the lobby light on.':'That far out? Take the main road. They shut the old bridge years ago.']]));
     }
     const car=W.makeCar('sedan','#657a6c','KU 18-39');car.root.position.set(-96,0,17);car.root.rotation.y=Math.PI/2;P.car=car;
+    P.route=[[-96,17],[-90,23],[-83,29],[-72,32],[-40,32],[-20,30.5],[-14,26],[-9,18],[-6.8,12.6]];
+    P.routeCum=[0];for(let i=1;i<P.route.length;i++)P.routeCum.push(P.routeCum[i-1]+Math.hypot(P.route[i][0]-P.route[i-1][0],P.route[i][1]-P.route[i-1][1]));
+    P.routeLen=P.routeCum[P.routeCum.length-1];
     use('car',car.hit,'Drive to Kurose Service',()=>{
       if(!P.keys||!P.dressed){api.toast(!P.dressed?'Put on work clothes at the bedroom wardrobe.':'Take your keys from the bedroom desk.');return;}
-      api.openModal('MOUNTAIN ROUTE 17','Leave for work?','<p>The appointment letter is folded on the passenger seat. There is still daylight.</p>',[['Drive to Kurose Service',()=>{P.stage='driving';P.drive=0;api.objective('Mountain Route Seventeen','');api.audio.engine(true);}],['Stay a little longer',()=>{}]]);
+      api.openModal('MOUNTAIN ROUTE 17','Leave for work?','<p>The appointment letter is folded on the passenger seat. There is still daylight.</p>',[['Drive to Kurose Service',()=>{P.stage='driving';P.drive=0;for(const o of cityInteractions)o.enabled=false;api.objective('Mountain Route Seventeen','');api.audio.engine(true);}],['Stay a little longer',()=>{}]]);
     });
     P.meshes=W.scene.meshes.slice(first);
     P.cityInteractions=cityInteractions;
@@ -222,7 +225,26 @@ window.NightPrologue = {
     P.act=id=>actions.get(id)?.();
     P.update=dt=>{
       if(P.stage==='apartment'){const p=api.G.player;if(p.x>-89.2&&p.x<-86.8){if(p.z<-5.3)P.level=1;if(p.z>2.5)P.level=0;}return;}
-      if(P.stage!=='driving')return;P.drive+=dt;const t=Math.min(1,P.drive/14);car.root.position.set(-96+t*24,0,17+Math.sin(t*Math.PI/2)*7);car.root.rotation.y=Math.PI/2;api.teleport(car.root.position.x+.05,car.root.position.z-.35,Math.PI/2,0);api.camera().position.y=1.22;if(t>=1)P.arrive();
+      if(P.stage!=='driving')return;
+      // A short scripted commute: out of the side street, east along Route 17
+      // past the neighborhood, and in under the canopy. The camera rides at
+      // dashboard height looking down the road, eased at both ends.
+      P.drive+=dt;
+      const D=19,t=Math.min(1,P.drive/D),e=t*t*(3-2*t);
+      let dist=e*P.routeLen,seg=0;
+      while(seg<P.routeCum.length-2&&dist>P.routeCum[seg+1])seg++;
+      const [ax,az]=P.route[seg],[bx,bz]=P.route[seg+1],
+        span=Math.max(.001,P.routeCum[seg+1]-P.routeCum[seg]),
+        f=Math.min(1,(dist-P.routeCum[seg])/span),
+        x=ax+(bx-ax)*f,z=az+(bz-az)*f,
+        yaw=Math.atan2(bx-ax,bz-az);
+      car.root.position.set(x,0,z);
+      const dy=Math.atan2(Math.sin(yaw-car.root.rotation.y),Math.cos(yaw-car.root.rotation.y));
+      car.root.rotation.y+=dy*Math.min(1,dt*4);
+      const h=car.root.rotation.y;
+      api.teleport(x+Math.sin(h)*.38,z+Math.cos(h)*.38,h,0);
+      api.camera().position.y=1.31;
+      if(t>=1)P.arrive();
     };
     P.skip();
   }
