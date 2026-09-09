@@ -614,6 +614,8 @@ kbd {
   inset: 85px 50px;
   border: 1px solid #c5dfbd60;
 }
+#cctv-switch {position:absolute;bottom:86px;left:50%;transform:translateX(-50%);font-size:12px;letter-spacing:.14em;color:#9db3a4;opacity:.8;}
+#cctv-switch kbd {border:1px solid #9db3a466;border-radius:3px;padding:1px 5px;font-size:11px;}
 #cctv-caption {
   position: absolute;
   bottom: 130px;

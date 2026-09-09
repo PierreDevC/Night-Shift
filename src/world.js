@@ -571,7 +571,7 @@
       wall: 0.24,
       height: 3.5,
       entrance: { x: -9.4, z: 5.12, width: 2.4 },
-      counter: { x0: 5.9, x1: 6.85, z0: -0.75, z1: 4.15 },
+      counter: { x0: 5.9, x1: 6.85, z0: -0.75, z1: 4.45 },
       lane: { x0: 6.85, x1: 8.45 },
       backCounter: { x0: 8.45, x1: 9.0, z0: -0.5, z1: 4.0 },
       coolers: { z: -5.4, depth: 0.85, x0: -11.9, x1: 5.3 },
@@ -949,19 +949,25 @@
     // Drawer front set into the staff face of the counter, under the till.
     box("register cash drawer", C.x1 + 0.02, 1.19, 2.25, 0.05, 0.17, 0.46, M.black);
     box("cash drawer handle", C.x1 + 0.055, 1.19, 2.25, 0.025, 0.03, 0.22, M.metal);
-    // Scanner beside the till, where goods are set down before ringing up.
-    const scanner = box("barcode scanner", staffX, counterTop + 0.08, 1.5, 0.3, 0.16, 0.32, M.black);
-    box("scanner red glass", staffX, counterTop + 0.171, 1.5, 0.22, 0.015, 0.22, M.redGlow);
+    // Scan bed, set flush into the counter alongside the pass tray. Goods are
+    // read where the customer set them down: the attendant picks each one off
+    // the tray and passes it over the glass a hand's width away, rather than
+    // carrying it to a separate box further down the run.
+    // Standing a few centimetres proud of the counter, the way a supermarket
+    // flatbed does: flush with the surface it cannot be aimed at, because the
+    // pass tray beside it wins the crosshair.
+    box("scanner bezel", 6.77, counterTop + 0.025, 3.2, 0.34, 0.05, 0.54, M.black);
+    const scanner = box("barcode scanner", 6.77, counterTop + 0.058, 3.2, 0.3, 0.022, 0.5, M.redGlow);
     interact("scanner", scanner, "Scan customer items", "scanner", {}, 2.5);
     // Alarm within reach of the till hand, clear of the transaction lane.
-    box("alarm plinth", 6.78, counterTop + 0.09, 3.58, 0.2, 0.18, 0.22, M.metal);
-    const alarm = box("security alarm button", 6.78, counterTop + 0.21, 3.58, 0.14, 0.06, 0.16, M.redGlow);
+    box("alarm plinth", 6.78, counterTop + 0.09, 3.66, 0.2, 0.18, 0.22, M.metal);
+    const alarm = box("security alarm button", 6.78, counterTop + 0.21, 3.66, 0.14, 0.06, 0.16, M.redGlow);
     interact("alarm", alarm, "Sound security alarm", "alarm");
     sign(
       "alarm label",
       6.881,
       counterTop + 0.09,
-      3.58,
+      3.66,
       0.2,
       0.12,
       [{ text: "ALARM", size: 44, y: 0.5 }],
@@ -969,14 +975,15 @@
       "#4c2824",
       staffFace,
     );
-    // Fuel desk and telephone further down the run, out of the sightline but
-    // still inside the booth, so the attendant never leaves the counter.
-    const fuelComputer = box("fuel validation computer", staffX, counterTop + 0.25, 0.6, 0.46, 0.5, 0.42, M.black);
+    // Fuel desk at the window end of the extended counter, on the attendant's
+    // right: turning to authorise a pump puts the forecourt straight ahead
+    // through the booth glazing. Well clear of the transaction sightline.
+    const fuelComputer = box("fuel validation computer", staffX, counterTop + 0.25, 4.17, 0.46, 0.5, 0.4, M.black);
     W.fuelScreen = sign(
       "fuel computer screen",
       staffX + 0.231,
       counterTop + 0.34,
-      0.6,
+      4.17,
       0.42,
       0.3,
       [
@@ -992,17 +999,17 @@
     const phone = box("counter telephone", staffX, counterTop + 0.08, -0.3, 0.3, 0.16, 0.36, M.black);
     box("telephone receiver", staffX, counterTop + 0.195, -0.3, 0.11, 0.07, 0.42, M.metal);
     interact("phone", phone, "Use telephone", "phone");
-    const intercom = box("entrance intercom", 6.6, 1.5, 3.92, 0.2, 0.24, 0.18, M.metal);
+    const intercom = box("entrance intercom", 6.08, 1.5, 4.22, 0.2, 0.24, 0.18, M.metal);
     interact("intercom", intercom, "Entrance intercom / door lock", "intercom", {}, 2.6);
     // Customer-side surface: bell, pass tray, printed receipt.
     const bell = cyl("counter bell", 6.06, 1.43, 2.45, 0.15, 0.09, M.cream);
     interact("bell", bell, "Ring counter bell", "bell");
-    const tray = box("customer pass tray", 6.33, 1.405, 3.2, 0.72, 0.04, 0.86, M.metal);
-    box("pass tray lip", 6.33, 1.43, 2.77, 0.74, 0.03, 0.025, M.cream);
+    const tray = box("customer pass tray", 6.25, 1.405, 3.2, 0.66, 0.04, 0.8, M.metal);
+    box("pass tray lip", 6.25, 1.43, 2.8, 0.68, 0.03, 0.025, M.cream);
     interact("cash-tray", tray, "Take cash from the tray", "cash-tray", {}, 2.6);
     // Printer fits between the phone and fuel terminal, clear of the intercom.
-    const printer = box("receipt printer", 6.25, 1.5, 3.91, 0.2, 0.2, 0.26, M.black);
-    const receipt = box("paper receipt", 6.25, 1.61, 3.91, 0.16, 0.015, 0.3, M.cream);
+    const printer = box("receipt printer", 6.1, 1.5, 3.76, 0.2, 0.2, 0.26, M.black);
+    const receipt = box("paper receipt", 6.1, 1.61, 3.76, 0.16, 0.015, 0.3, M.cream);
     interact("receipt", receipt, "Read last receipt", "receipt");
     W.counterSpot = spot("counter", 5.35, 3.2);
     W.attendantSpot = spot("attendant", 7.6, 3.2);
@@ -1948,6 +1955,23 @@
     rain.emitter = new V(0, 13, 14);
     rain.minEmitBox = new V(-24, 0, -12);
     rain.maxEmitBox = new V(24, 0, 18);
+    // Particles do not collide, so any drop spawned over a roof would fall
+    // straight through it and rain indoors. Re-roll spawns that land over the
+    // shop or the canopy; the sheets slant west, so the covered rectangles are
+    // padded a metre on the east for drift. Under the canopy only the drip
+    // system below runs, which is what the eye expects from a metal deck.
+    const covered = [
+      { x0: shopCx - shopW / 2 - 1.6, x1: shopCx + shopW / 2 + 1.9, z0: -11.4, z1: 6.9 },
+      { x0: L.canopy.x0 - 0.8, x1: L.canopy.x1 + 1.9, z0: L.canopy.z0 - 0.6, z1: L.canopy.z1 + 0.6 },
+    ];
+    rain.startPositionFunction = (m, position) => {
+      let x, z, guard = 0;
+      do {
+        x = -24 + rnd() * 48;
+        z = 2 + rnd() * 30;
+      } while (guard++ < 8 && covered.some(c => x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1));
+      position.copyFromFloats(x, 13, z);
+    };
     rain.color1 = new B.Color4(0.57, 0.7, 0.69, 0.3);
     rain.color2 = new B.Color4(0.7, 0.8, 0.74, 0.16);
     rain.colorDead = new B.Color4(0.3, 0.4, 0.4, 0);
@@ -2078,7 +2102,30 @@
       }
       path.reverse();
       path.push([goal.x, goal.z]);
-      return path;
+      // String-pulling. The grid is 4-connected, so the raw path is an
+      // axis-aligned staircase and anyone following it walks like a rook.
+      // Replace each run of cells with the longest straight segment that the
+      // same walkability test accepts, sampled finely enough that a segment
+      // cannot thread between two checks. People then cross open floor on
+      // diagonals and only turn where there is actually something to turn for.
+      const clear = (a, b) => {
+        const dx = b[0] - a[0], dz = b[1] - a[1],
+          steps = Math.ceil(Math.hypot(dx, dz) / 0.15);
+        for (let s = 1; s < steps; s++)
+          if (W.navBlocked(a[0] + (dx * s) / steps, a[1] + (dz * s) / steps, clearance, staffAllowed))
+            return false;
+        return true;
+      };
+      const smooth = [];
+      let anchor = [start.x, start.z], i = 0;
+      while (i < path.length) {
+        let j = i;
+        while (j + 1 < path.length && clear(anchor, path[j + 1])) j++;
+        smooth.push(path[j]);
+        anchor = path[j];
+        i = j + 1;
+      }
+      return smooth;
     };
 
     // Build-time self check. A standing position that ends up inside a fixture
@@ -2430,8 +2477,37 @@
       return n;
     };
 
+    // ---------------------------------------------------------------------
+    // Tape-only presence. Babylon draws a mesh for a camera only when their
+    // layer masks intersect, so a body moved onto this layer is drawn by the
+    // security cameras and by nothing else: the attendant can stand in the
+    // room it is standing in and see an empty room, while the monitor behind
+    // them shows the figure. The whole stalker thread rests on this one bit.
+    // ---------------------------------------------------------------------
+    W.CAMERA_LAYER = 0x20000000;
+    W.setTapeOnly = function (n) {
+      n.tapeOnly = true;
+      const lifted = new Set();
+      for (const m of n.root.getChildMeshes()) {
+        m.layerMask = W.CAMERA_LAYER;
+        m.isPickable = false; // it is not in the room; it cannot be aimed at
+        // Lift the figure slightly toward over-exposure. On a dim recording a
+        // person reads as a pale smear the eye is drawn to; without this the
+        // grey coat sinks into the floor and the sighting can be missed.
+        if (m.material && !lifted.has(m.material)) {
+          lifted.add(m.material);
+          if (m.material.emissiveColor)
+            m.material.emissiveColor = m.material.emissiveColor.add(new B.Color3(0.11, 0.12, 0.11));
+        }
+      }
+      if (n.hit) n.hit.isPickable = false;
+      return n;
+    };
+    // Cameras that are allowed to see the tape layer as well as the world.
+    W.cameraMask = 0x0fffffff | W.CAMERA_LAYER;
+
     // The pass tray on the customer side of the counter holds their shopping.
-    W.trayOrigin = new V(6.33, 1.427, 3.2);
+    W.trayOrigin = new V(6.25, 1.427, 3.2);
     W.clearCounter = function () {
       W.counterItems.forEach((p) => p.dispose());
       W.counterItems = [];

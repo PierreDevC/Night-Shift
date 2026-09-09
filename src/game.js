@@ -165,6 +165,7 @@
   }
   function phase(id) {
     G.phase = id;
+    if (id === "daichi" && G.ambientEnabled) later(14, spawnKatagiri);
     const p = phases[id];
     if (p) {
       $("clock").textContent = p[0];
@@ -499,6 +500,33 @@
     G.nextAmbient = G.elapsed + 75 + G.trafficRandom() * 105;
     if (G.shoppers.filter(c => c.ambient).length < 2) spawnWalkIn();
   }
+  // Mr. Katagiri visits the shop exactly once, in person, early in the night.
+  // Every appearance after that is on the cameras only. He is deliberately an
+  // unremarkable transaction: the player has no reason to remember him until
+  // the tape starts insisting on him.
+  function spawnKatagiri() {
+    if (G.flags.katagiriCame || !ordinaryPhases.has(G.phase) || G.pendingStory) return null;
+    const bay = W.reserveBay("katagiri");
+    if (!bay) return null;
+    G.flags.katagiriCame = true;
+    const person = {
+      name: "Mr. Katagiri",
+      coat: "#4a4d4a",
+      paint: "#3d4547",
+      type: "sedan",
+      plate: "KU 09-77",
+      katagiri: true,
+      line: "Tape. Batteries. \u2026The camera over your counter. Does it record, or does it only watch?",
+    };
+    const car = W.makeCar(person.type, person.paint, person.plate);
+    car.root.position.set(-58, 0, W.L.road);
+    car.targetSpeed = 6;
+    const c = { id: "katagiri", ambient: true, person, bay, car, npc: null,
+      state: "driving", order: ["tape", "batteries"], fuel: 0, pump: 0, carriedItems: [] };
+    G.shoppers.push(c);
+    arriveCustomer(c, person, [bay.x, bay.z]);
+    return c;
+  }
   function spawnWalkIn() {
     if (!ordinaryPhases.has(G.phase) || G.pendingStory === "shibata") return null;
     if (G.shoppers.filter(c => c.ambient).length >= 2) return null;
@@ -683,6 +711,13 @@
   function dismiss(after) {
     const c = G.customer;
     if (!c) return;
+    if (c.person?.katagiri && !G.flags.katagiriVisited) {
+      G.flags.katagiriVisited = true;
+      journal(
+        "The customer with the tape",
+        "He paid exact change for cloth tape and batteries, and asked whether the camera records. His sedan is grey. KU 09-77.",
+      );
+    }
     c.state = "leaving";
     W.clearCounter();
     show("checkout", false);
@@ -1189,6 +1224,85 @@
     }
     G.ending = type;
   }
+  const CAMS = [
+    { id: "01", label: "SALES FLOOR", pos: [-11.2, 3.1, 4.4], target: [4, 0.9, -2], fov: 1.15,
+      idle: "CAM 01 · Sales floor. The aisles hum under the tubes." },
+    { id: "02", label: "FORECOURT", pos: [-8.4, 3.4, 6.4], target: [5.5, 1.2, 16], fov: 1.05,
+      idle: "CAM 02 · Forecourt. Rain washes across the lens." },
+    { id: "03", label: "REAR YARD", pos: [0.2, 3.0, -13.6], target: [6.4, 1.0, -10.5], fov: 1.1,
+      idle: "CAM 03 · Rear yard. The service light hums over the door." },
+    { id: "04", label: "STOCKROOM", pos: [0.8, 3.05, -6.6], target: [7.2, 0.8, -9.8], fov: 1.1,
+      idle: "CAM 04 · Stockroom. Boxes from the evening delivery." },
+  ];
+  // Where the tape says Katagiri is standing right now. One stage per band of
+  // the night, each on a different camera, each a step closer to the player:
+  // road edge, then the aisles, then the stockroom. He is never in the room.
+  function watcherStage() {
+    if (!G.flags.katagiriVisited) return null;
+    const ph = G.phase;
+    if (ph === "daichi" || ph === "hasegawa")
+      return { cam: 1, pos: [7.5, 0.23, 13.2], yaw: Math.PI, flag: "watcher1",
+        caption: "A man stands at the edge of the parking bays, facing the shop. There is no car on the image.",
+        note: ["A figure on the forecourt camera", "Across the road, not waiting for anything. The grey sedan is nowhere on the image."] };
+    if (ph === "ryo")
+      return { cam: 0, pos: [-6.5, 0.23, 3.8], yaw: Math.PI, flag: "watcher2",
+        caption: "There is a customer standing in front of aisle two. The shop is empty. The door has not opened.",
+        note: ["A customer who is not there", "Aisle two on the sales floor camera. I can see the whole shop from the counter. There is no one in it."] };
+    if (ph === "shibata" || ph === "mimic")
+      return { cam: 3, pos: [2.2, 0.23, -10.0], yaw: Math.PI, flag: "watcher3",
+        caption: "Someone is in the stockroom, facing the wall. The stockroom door is shut.",
+        note: ["Facing the wall", "The stockroom camera. He is inches from the south wall, perfectly still. The latch on the service door is the one I repaired."] };
+    return null;
+  }
+  function updateWatcher() {
+    if (!W.watcher) {
+      W.watcher = W.makeNPC("Katagiri", "#4a4d4a", "#2a2d2a");
+      W.setTapeOnly(W.watcher);
+      W.watcher.root.setEnabled(false);
+    }
+    const st = watcherStage();
+    const on = st && G.cam === st.cam;
+    W.watcher.root.setEnabled(!!on);
+    W.watcher.tapeCaption = on ? st.caption : null;
+    W.watcher.tapeCam = on ? st.cam : -1;
+    if (on) {
+      W.watcher.root.position.set(st.pos[0], st.pos[1], st.pos[2]);
+      W.watcher.root.rotation.y = st.yaw;
+      if (!G.flags[st.flag]) {
+        G.flags[st.flag] = true;
+        journal(st.note[0], st.note[1]);
+        audio.play("scare");
+      }
+    }
+  }
+  function aimCam(i) {
+    const c = CAMS[i];
+    securityCamera.position.set(c.pos[0], c.pos[1], c.pos[2]);
+    securityCamera.setTarget(new V(c.target[0], c.target[1], c.target[2]));
+    securityCamera.fov = c.fov;
+  }
+  function setCam(i, blip = true) {
+    G.cam = (i + CAMS.length) % CAMS.length;
+    aimCam(G.cam);
+    updateWatcher();
+    $("cctv-cam").textContent = "KUROSE SECURITY / CAM " + CAMS[G.cam].id + " · " + CAMS[G.cam].label;
+    $("cctv-caption").textContent = cctvCaption(G.cam);
+    if (blip) audio.play("switch");
+  }
+  // What the selected camera has to say right now. Story moments override the
+  // idle line; they are all tied to specific cameras, which is what makes
+  // flipping through the bank an act of looking rather than a menu.
+  function cctvCaption(i) {
+    const cam = CAMS[i];
+    if (i === 1) {
+      if (G.flags.strangeReceipt)
+        return "The cream sedan is missing from the image. The camera timestamp reads 17 APRIL 1980. A figure stands where Pump Four should be.";
+      if (G.phase === "ryo")
+        return "A dark vehicle passes the road without stopping. Ryo\u2019s pickup has a broken side window.";
+    }
+    if (W.watcher?.tapeCaption && W.watcher.tapeCam === i) return W.watcher.tapeCaption;
+    return cam.idle;
+  }
   function cameraView() {
     if (G.threat) {
       toast("No time to watch the cameras while someone is inside.");
@@ -1204,7 +1318,8 @@
       G.phase === "shibata"
         ? "01:06:44 / 1980"
         : phases[G.phase]?.[0] || "02:14";
-    let caption = "CAM 02 · Forecourt. Rain washes across the lens.";
+    setCam(G.cam ?? 1, false);
+    let caption = cctvCaption(G.cam);
     if (G.flags.strangeReceipt) {
       G.flags.cameraClue = true;
       caption =
@@ -1239,6 +1354,9 @@
   function closeCamera() {
     if (!G.cctv) return;
     G.cctv = false;
+    G.cam = 1;
+    aimCam(1);
+    if (W.watcher) { W.watcher.root.setEnabled(false); W.watcher.tapeCaption = null; }
     if(W.heldRoot)W.heldRoot.setEnabled(true);
     scene.activeCamera = camera;
     show("cctv", false);
@@ -1997,6 +2115,8 @@
       );
       securityCamera.setTarget(new V(5.5, 1.2, 16));
       securityCamera.fov = 1.05;
+      // Only the security cameras are allowed to see the tape-only layer.
+      securityCamera.layerMask = W.cameraMask;
       securityCamera.minZ = 0.1;
       const titleCamera = new B.FreeCamera(
         "title camera",
@@ -2027,7 +2147,9 @@
       );
       rtt.activeCamera = securityCamera;
       rtt.renderList = scene.meshes.filter(
-        (m) => m !== W.monitorScreen && m.position.z > 5,
+        (m) =>
+          m !== W.monitorScreen &&
+          (m.position.z > 5 || m.layerMask === W.CAMERA_LAYER),
       );
       rtt.refreshRate = 6;
       scene.customRenderTargets.push(rtt);
@@ -2073,6 +2195,9 @@
         if (G.mode !== "playing") return;
         if (G.cctv) {
           if (e.code === "KeyE") closeCamera();
+          else if (e.code === "KeyD" || e.code === "ArrowRight") setCam(G.cam + 1);
+          else if (e.code === "KeyA" || e.code === "ArrowLeft") setCam(G.cam - 1);
+          else if (/^Digit[1-4]$/.test(e.code)) setCam(+e.code.slice(5) - 1);
           return;
         }
         if (G.modal) return;
@@ -2203,7 +2328,8 @@
               (m) =>
                 m !== W.monitorScreen &&
                 m.isEnabled() &&
-                m.getAbsolutePosition().z > 5,
+                (m.getAbsolutePosition().z > 5 ||
+                  m.layerMask === W.CAMERA_LAYER),
             );
         }
         if (G.modal) W.updateFridges(dt);
@@ -2245,6 +2371,8 @@
           interact: (id) => interact(W.interactions.find((o) => o.id === id)),
           summon,
           spawnWalkIn,
+          spawnKatagiri,
+          setCam,
           advanceQueue,
           phase,
           beginSiege,

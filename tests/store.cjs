@@ -107,6 +107,77 @@ const { launch } = require('./helpers/browser.cjs');
       return fouled;
     }), [], 'No door leaf sweeps through furniture');
 
+    // Rain never falls indoors. Particles do not collide with the roof, so
+    // the emitter itself must refuse to spawn over covered ground; sample the
+    // live field after the world has rained for a while.
+    assert.deepEqual(await evaluate(() => {
+      const W = __nightShift.W;
+      W.setDaylight(false);
+      // Advance the particle system directly: animate() steps it by real
+      // frame time, so a burst of calls fills the field deterministically.
+      for (let i = 0; i < 600; i++) W.rain.animate();
+      let inShop = 0, underCanopy = 0;
+      for (const p of W.rain.particles) {
+        const { x, y, z } = p.position;
+        if (y < 3.4 && x > -12 && x < 9 && z > -10.6 && z < 5.1) inShop++;
+        const c = W.L.canopy;
+        if (y < c.clear && x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1) underCanopy++;
+      }
+      return { some: W.rain.particles.length > 200, inShop, underCanopy };
+    }), { some: true, inShop: 0, underCanopy: 0 }, 'No rain inside the shop or under the canopy');
+
+    // Routes are string-pulled: people cross open floor on diagonals instead
+    // of walking the grid like a rook, and every smoothed segment must pass
+    // the same walkability test the planner used.
+    assert.equal(await evaluate(() => {
+      const W = __nightShift.W;
+      const p = W.findPath({ x: W.frontDoor.x, z: W.frontDoor.z - 1 }, { x: 6.1, z: -4.1 });
+      let diagonal = 0, prev = [W.frontDoor.x, W.frontDoor.z - 1];
+      for (const q of p) {
+        const dx = q[0] - prev[0], dz = q[1] - prev[1];
+        if (Math.abs(dx) > 0.01 && Math.abs(dz) > 0.01) diagonal++;
+        const steps = Math.ceil(Math.hypot(dx, dz) / 0.1);
+        for (let s = 1; s < steps; s++)
+          if (W.navBlocked(prev[0] + dx * s / steps, prev[1] + dz * s / steps, 0.22)) return 'blocked segment';
+        prev = q;
+      }
+      return p.length <= 8 && diagonal > 0;
+    }), true, 'Paths are smoothed into walkable diagonals');
+
+    // Tape-only presence: the stalker thread depends on a body the security
+    // cameras draw and the player's own eyes do not. Assert the layer masks
+    // actually intersect that way rather than trusting the constant, and that
+    // such a body can never be aimed at, since it is not in the room.
+    assert.deepEqual(await evaluate(() => {
+      const d = __nightShift, W = d.W;
+      const g = W.makeNPC('tape probe', '#39413c', '#1d211d');
+      g.root.position.set(4.6, 0.23, 15.5);
+      W.setTapeOnly(g);
+      const main = d.getCamera(), sec = d.scene.cameras.find(c => c.name === 'security');
+      const parts = g.root.getChildMeshes();
+      const out = {
+        seenByPlayer: parts.some(m => (m.layerMask & main.layerMask) !== 0),
+        seenByCamera: parts.every(m => (m.layerMask & sec.layerMask) !== 0),
+        aimable: parts.some(m => m.isPickable),
+        inMonitorFeed: false,
+      };
+      // The in-world monitor rebuilds its render list from the scene each frame;
+      // a tape body inside the shop must survive that filter too.
+      W.rtt.renderList = d.scene.meshes.filter(
+        m => m !== W.monitorScreen && m.isEnabled() &&
+          (m.getAbsolutePosition().z > 5 || m.layerMask === W.CAMERA_LAYER));
+      g.root.position.set(-2, 0.23, -4); // deep inside the sales floor
+      g.root.getChildMeshes()[0].computeWorldMatrix(true);
+      W.rtt.renderList = d.scene.meshes.filter(
+        m => m !== W.monitorScreen && m.isEnabled() &&
+          (m.getAbsolutePosition().z > 5 || m.layerMask === W.CAMERA_LAYER));
+      out.inMonitorFeed = W.rtt.renderList.includes(parts[0]);
+      parts.forEach(m => m.dispose());
+      g.root.dispose();
+      return out;
+    }), { seenByPlayer: false, seenByCamera: true, aimable: false, inMonitorFeed: true },
+      'A tape-only body is on camera, off the player\'s screen, and cannot be aimed at');
+
     // Nothing on the till may hover. This is the check that catches equipment
     // being moved "deeper into the booth" off the edge of its work surface.
     assert.deepEqual(await evaluate(() => {
@@ -278,6 +349,52 @@ const { launch } = require('./helpers/browser.cjs');
     assert.equal(await evaluate(() => __nightShift.G.shoppers.filter(c => c.ambient).length), 0, 'Walk-ins leave after payment');
     assert.equal(await evaluate(() => __nightShift.G.phase), 'daichi', 'Story continues in original order');
     assert.equal(await evaluate(() => __nightShift.W.parkingBays.filter(b => b.occupied).length), 1, 'Departed customers release bays');
+
+    // Mr. Katagiri: one real visit through the ordinary till machinery, and
+    // from then on the cameras carry him. The whole thread in miniature.
+    assert.ok(await evaluate(() => !!__nightShift.spawnKatagiri()), 'Katagiri arrives');
+    // Daichi (the story customer) is already queuing, so serve the till in
+    // order until Katagiri has been rung up, the way a real shift would.
+    let sawKatagiri = false;
+    for (let guard = 0; guard < 6 && !sawKatagiri; guard++) {
+      await tick(40);
+      const current = await evaluate(() => __nightShift.G.customer?.state === 'waiting' &&
+        { id: __nightShift.G.customer.id, count: __nightShift.G.customer.order.length });
+      if (!current) continue;
+      if (current.id === 'katagiri') {
+        assert.deepEqual(await evaluate(() => __nightShift.G.customer.order), ['tape', 'batteries'], 'He buys tape and batteries');
+        sawKatagiri = true;
+      }
+      await evaluate(() => { __nightShift.G.flags.noodlesHeated = true;
+        if (__nightShift.G.customer) __nightShift.G.customer.fuelAuthorized = true; });
+      for (let j = 0; j < current.count; j++) await action('scanner');
+      await action('register');
+      await tick(8);
+    }
+    assert.ok(sawKatagiri, 'Katagiri reaches the till');
+    await tick(60);
+    assert.equal(await evaluate(() => __nightShift.G.shoppers.filter(c => c.ambient).length), 0, 'Katagiri leaves like any customer');
+    assert.ok(await evaluate(() => __nightShift.G.flags.katagiriVisited), 'His visit arms the cameras');
+    // Stage two of the escalation: the sales-floor camera shows him inside the
+    // shop while the shop is empty; the other cameras and the room show nothing.
+    assert.deepEqual(await evaluate(() => {
+      const d = __nightShift;
+      d.phase('ryo');
+      d.interact('cctv');
+      d.setCam(0, false);
+      const w = d.W.watcher, main = d.getCamera();
+      const onTape = w.root.isEnabled() &&
+        w.root.getChildMeshes().every(m => (m.layerMask & main.layerMask) === 0);
+      const caption = document.getElementById('cctv-caption').textContent.includes('customer standing');
+      d.setCam(1, false);
+      const wrongCam = !w.root.isEnabled();
+      d.closeCamera();
+      const afterClose = !w.root.isEnabled();
+      return { onTape, caption, wrongCam, afterClose,
+        journal: d.G.journal.some(j => (j.title || '').includes('customer who is not there')) };
+    }), { onTape: true, caption: true, wrongCam: true, afterClose: true, journal: true },
+      'The tape shows Katagiri where the room shows no one');
+    await evaluate(() => __nightShift.phase('daichi'));
     await evaluate(() => {
       const d = __nightShift;
       d.G.ambientEnabled = true; d.G.nextAmbient = d.G.elapsed; d.G.trafficRandom = () => 0.7;

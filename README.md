@@ -32,7 +32,7 @@ The site follows ordinary roadside-konbini and forecourt practice rather than an
 - **Back of house.** One signed STOCKROOM door opens from the sales floor. Inside, a staff-only OFFICE door leads to the nested office (time clock, CCTV, records); the stockroom holds the delivery, a workbench along the east wall and the service exit. Nothing is parked in front of a door: the bench stands clear of the service exit, and no door leaf sweeps through furniture when it opens. There is no public hallway or second exterior office door. The east wall is continuous and the rear exit has a real opening in the shell.
 - **Forecourt.** Two pump islands about nine metres apart under a twelve-by-eighteen-metre canopy with roughly five metres of clearance, customer bays in front of the shop, the price tower at the roadside, and air and water on the far side.
 
-Every fixture registers the spot a shopper stands in front of it, and the build fails loudly if any of those spots ends up inside geometry. Customers and the Passenger share one navigation grid with different access permissions: shoppers cannot route through staff doors; the Passenger can pursue through them. Failed routes wait and retry instead of falling back to a straight line through walls.
+Every fixture registers the spot a shopper stands in front of it, and the build fails loudly if any of those spots ends up inside geometry. Customers and the Passenger share one navigation grid with different access permissions: shoppers cannot route through staff doors; the Passenger can pursue through them. Failed routes wait and retry instead of falling back to a straight line through walls. Routes are string-pulled after planning, so people cross open floor on natural diagonals and only turn where there is something to turn for, rather than pacing the grid like a rook.
 
 ## This first playable version
 
@@ -46,7 +46,9 @@ This is a compact, approximately 15–25 minute interpretation of the larger sto
 - Hollow refrigerator cabinets expose stocked shelves, labels and price rails behind clear framed doors. Shoppers open the relevant fridge, collect a product and let the door close. Players can also open the fridges with **E**.
 - A roadside bus shelter, shuttered repair shop and diner, sodium lamps, drainage culvert, retaining wall, shrubs and layered trees give the station a surrounding neighborhood.
 - Powered sliding entrance with proximity sensor and lock; swinging interior doors; repairable rear latch.
-- CCTV camera and live in-world monitor, inspection prompts, journal, telephone, receipts, first aid, and optional chores.
+- A four-camera security bank — sales floor, forecourt, rear yard, stockroom — flipped through with A/D or the digit keys from the office view, plus the live in-world monitor, inspection prompts, journal, telephone, receipts, first aid, and optional chores.
+- Mr. Katagiri, a customer who visits the shop exactly once — and afterwards appears only on the security cameras, one stage closer each time: the parking bays, then the sales floor of the visibly empty shop, then the stockroom, facing the wall. The cameras render him on a layer the player's own eyes cannot see, so walking to the spot always finds it empty; each sighting is logged in the journal.
+- Rain that respects the architecture: the emitter refuses to spawn drops over the shop roof or the canopy, so it never rains indoors and the canopy sheds only its drip line.
 - Emi, Daichi, Mrs. Hasegawa, Ryo, Shibata, and the returning double.
 - A hostile Passenger with navigation around walls and shelves, sight/hearing, damage, an alarm stun, a consumable flare, and checkpoint retries.
 - Scripted window cracking and breakage that changes collision and creates hazardous glass.
