@@ -285,7 +285,7 @@ window.NightModels = (() => {
 
       // Ryo arm injury bandage on left arm
       if (n.name.includes('Ryo') && side === -1) {
-        const b1 = cyl('forearm bandage', 0, -0.32, 0, 0.09, 0.16, W.M.cream, 12, arm);
+        const b1 = W.cyl('forearm bandage', 0, -0.32, 0, 0.09, 0.16, W.M.cream, 12, arm);
         const bSpot = W.box('blood spot', 0.038, -0.32, 0.02, 0.02, 0.04, 0.02, W.M.red, false, arm);
       }
 

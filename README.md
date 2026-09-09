@@ -66,6 +66,11 @@ The art is an original stylized procedural prototype. NPCs and vehicles are deli
 
 - `index.html`: entry point and interface.
 - `src/style.css`: title, HUD, settings, journal, CCTV, endings.
+- `src/ARCHITECTURE.md`: how the code is organised — the shared context, the late-bound verb table, and the system/interaction contracts. Read this first.
+- `src/core/`: engine-agnostic plumbing — `EventBus`, the `System` base class, and `Hud` (every piece of DOM the game touches).
+- `src/systems/`: one file per concern — player, customers, chores, threat, security cameras, story, interactions. Systems register their verbs into a shared table and claim the interaction kinds they own; there is no central dispatcher.
+- `src/world/`: how the station is made — `MeshKit` primitives, `Vehicle`, `Actor`, and the `NavGrid` shared by shoppers and the Passenger.
+- `src/game.js`: bootstrap only — builds the context, constructs the systems, owns input and the render loop.
 - `src/world.js`: the single source of truth for the layout — envelope, fixtures, merchandising, forecourt, lighting, collision, shared navigation, cars, characters, doors and windows.
 - `src/store.js`: store operations — carried props, first-person hands, cash, delivery and restocking. Installed by `world.js`; it never moves the layout.
 - `src/vhs.js`: the camcorder grade and the VHS tape shader.
