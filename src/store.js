@@ -77,7 +77,7 @@
 
       W.dropCarry = function (carry, x, z, yaw) {
         const prop = W.makeCarryProp(carry.kind, carry.id);
-        prop.position.set(x, 0.235, z);
+        prop.position.set(x, W.floorElevation(x, z) + 0.005, z);
         prop.rotation.y = yaw;
         const id = "dropped-item-" + W.interactions.length;
         W.interact(id, prop.main, "Pick up " + carry.name.toLowerCase(), "pickup", {

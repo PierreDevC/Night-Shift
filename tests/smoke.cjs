@@ -22,7 +22,7 @@ const { launch } = require("./helpers/browser.cjs");
     if (/^https?:/.test(r.url())) network.push(r.url());
   });
   const url = pathToFileURL(path.resolve("index.html")).href;
-  await page.goto(url + "?debug=1");
+  await page.goto(url + "?debug=1&skipIntro=1");
   await page.waitForSelector("#menu:not(.hidden)", { timeout: 60000 });
   await page.screenshot({ path: "test-results/title.png" });
 
@@ -39,6 +39,13 @@ const { launch } = require("./helpers/browser.cjs");
   assert.equal(await page.evaluate(() => __nightShift.G.mode), "playing");
   const action = (id) => page.evaluate((id) => __nightShift.interact(id), id);
   const tick = (s) => page.evaluate((s) => __nightShift.tick(s), s);
+  const waitForCustomer = async id => {
+    for(let i=0;i<48;i++) {
+      if(await page.evaluate(id=>__nightShift.G.customer?.id===id&&__nightShift.G.customer.state==='waiting',id))return;
+      await tick(5);
+    }
+    throw new Error(id+' did not reach checkout within four minutes');
+  };
   const state = () =>
     page.evaluate(() => {
       const { G, W } = __nightShift;
@@ -228,6 +235,7 @@ const { launch } = require("./helpers/browser.cjs");
   await tick(7);
   assert.ok((await state()).customer.car[0] > -40, "Car physically advances");
   await tick(60);
+  await waitForCustomer('emi');
   s = await state();
   assert.equal(s.customer.state, "waiting", "Emi shops the aisles and reaches the counter");
   await page.screenshot({ path: "test-results/checkout.png" });
@@ -257,6 +265,7 @@ const { launch } = require("./helpers/browser.cjs");
   await tick(70);
   assert.equal((await state()).customer.id, "daichi");
   await tick(60);
+  await waitForCustomer('daichi');
   assert.equal((await state()).customer.state, "waiting");
   for (let i = 0; i < 3; i++) await action("scanner");
   await action("register");
@@ -268,15 +277,17 @@ const { launch } = require("./helpers/browser.cjs");
   // The microwave is on the back counter, so the attendant can actually reach it.
   assert.equal(await aim("microwave"), "microwave");
   await page.keyboard.press("KeyE");
-  await tick(9);
+  await tick(11);
   assert.ok((await state()).flags.noodlesHeated, "Noodles heated at the back counter");
   await action("register");
   await tick(95);
+  await waitForCustomer('hasegawa');
   assert.equal((await state()).customer.id, "hasegawa");
   assert.equal((await state()).customer.state, "waiting");
   for (let i = 0; i < 3; i++) await action("scanner");
   await action("register");
   await tick(95);
+  await waitForCustomer('ryo');
   assert.equal((await state()).customer.id, "ryo");
   const ryoCar = await page.evaluate(
     () => __nightShift.W.interactions.find((o) => o.kind === "car" && o.data.id === "ryo").id,
@@ -290,6 +301,7 @@ const { launch } = require("./helpers/browser.cjs");
   await choice("Let him take the supplies");
   assert.ok((await state()).flags.flare);
   await tick(120);
+  await waitForCustomer('shibata');
   assert.equal((await state()).customer.id, "shibata");
   assert.equal((await state()).customer.state, "waiting");
   await action("scanner");
@@ -301,6 +313,7 @@ const { launch } = require("./helpers/browser.cjs");
   await page.screenshot({ path: "test-results/cctv.png" });
   await page.evaluate(() => __nightShift.closeCamera());
   await tick(120);
+  await waitForCustomer('mimic');
   assert.equal((await state()).customer.id, "mimic");
   assert.equal((await state()).customer.state, "waiting");
   await action("phone");

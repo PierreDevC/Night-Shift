@@ -57,6 +57,8 @@
   };
   const EYE = 1.68;
   const phases = {
+    apartment: ["05:38 PM", "BEFORE THE SHIFT"],
+    orientation: ["06:12 PM", "THE DAYLIGHT HANDOVER"],
     handover: ["11:42 PM", "THE HANDOVER"],
     prep: ["11:48 PM", "FIRST DUTIES"],
     emi: ["12:03 AM", "PEOPLE PASSING THROUGH"],
@@ -147,6 +149,7 @@
     $("subtitle").querySelector("p").textContent = text;
     show("subtitle");
     G.subtitleUntil = G.elapsed + duration;
+    document.body.classList.add('speaking');
   }
   function journal(title, text) {
     if (G.journal.some((e) => e.title === title)) return;
@@ -156,6 +159,7 @@
   function objective(text, hint = "") {
     $("objective-text").textContent = text;
     $("objective-hint").textContent = hint;
+    G.objectiveUntil=G.elapsed+9;
   }
   function phase(id) {
     G.phase = id;
@@ -204,14 +208,30 @@
   }
   function closeModal() {
     G.modal = false;
+    G.focus=null;
+    document.body.classList.remove('conversing');
+    $('modal').classList.remove('conversation');
+    if(camera)camera.fov=1.02;
     show("modal", false);
     if (G.mode === "playing") setTimeout(capture, 0);
+  }
+  function focusCharacter(n) { G.focus=n;document.body.classList.add('conversing'); }
+  function dialogue(n, lines, done=()=>{}) {
+    let index=0;
+    const next=()=>{
+      if(index>=lines.length){done();return;}
+      const [who,text]=lines[index++];
+      openModal(who,'', '<p>'+text+'</p>',[[index===lines.length?'Continue':'Next',next]]);
+      $('modal').classList.add('conversation');focusCharacter(n);
+    };
+    next();
   }
   function held() {
     $("held-text").textContent = G.held ? G.held + " · G SET DOWN" : "EMPTY HANDS";
     W.setHeldVisual(camera,G.carry);
   }
   function takeCarry(kind,id,name) {
+    if(G.flags.pouring){toast('Let the coffee finish pouring first.');return false;}
     if(G.carry){toast("Set down "+G.carry.name.toLowerCase()+" first (G).");return false;}
     G.carry={kind,id,name};G.held=name.toUpperCase();G.flags.carton=kind==='carton';held();audio.play('switch');return true;
   }
@@ -472,7 +492,7 @@
   function updateTraffic() {
     if (!G.ambientEnabled || !ordinaryPhases.has(G.phase) || G.pendingStory === "shibata") return;
     if (G.elapsed < G.nextAmbient) return;
-    G.nextAmbient = G.elapsed + 18 + G.trafficRandom() * 24;
+    G.nextAmbient = G.elapsed + 75 + G.trafficRandom() * 105;
     if (G.shoppers.filter(c => c.ambient).length < 2) spawnWalkIn();
   }
   function spawnWalkIn() {
@@ -547,8 +567,13 @@
       }
       const id = ids[index],
         spot = customerSpot(id);
+      c.state='walking';
       npc.walkTo(spot[0], spot[1], () => {
         if (!G.shoppers.includes(c) || c.state === "hostile") return;
+        c.state='browsing';c.browseSection=id;
+        const linger=3+G.trafficRandom()*9+(G.trafficRandom()<.12?12:0);
+        later(linger, () => {
+        if (!G.shoppers.includes(c) || c.state === 'hostile') return;
         const fridge = W.productFridges[id];
         W.openFridge(fridge, 2.6);
         later(fridge ? 0.8 : 0.3, () => {
@@ -568,6 +593,7 @@
         );
         index++;
         later(0.65, next);
+        });
         });
       });
     };
@@ -637,7 +663,7 @@
     interactCar(car, id);
     if (!G.customer || G.customer === c)
       objective("A vehicle is approaching.", "Shoppers may arrive together. Serve each order at the till.");
-    if (!G.nextAmbient) G.nextAmbient = G.elapsed + 12 + G.trafficRandom() * 12;
+    if (!G.nextAmbient) G.nextAmbient = G.elapsed + 65 + G.trafficRandom() * 70;
     arriveCustomer(c, d, park);
   }
   function interactCar(car, id) {
@@ -754,7 +780,7 @@
               show("checkout", false);
               objective(
                 "Compare Pump Four with the security camera.",
-                "The CCTV monitor is on the office desk, through the rear left door.",
+                "Enter the stockroom, then the office on your left. The CCTV monitor is on the desk.",
               );
               say("NAO", "That date… this can’t be right.");
             },
@@ -1228,6 +1254,8 @@
   }
   function interact(o) {
     if (!o || G.mode !== "playing" || G.modal || G.cctv) return;
+    if(o.kind==='home'){W.prologue.act(o.id);return;}
+    if(o.kind==='boss'){W.prologue.talkBoss();return;}
     if (o.data.fridge) W.openFridge(o.data.fridge, 3);
     switch (o.kind) {
       case "door": {
@@ -1241,6 +1269,7 @@
         break;
       }
       case "timeclock":
+        if(W.prologue.stage==='orientation'){toast('Speak to Mr. Kuroda before beginning your night shift.');break;}
         if (!G.flags.clocked) {
           G.flags.clocked = true;
           phase("prep");
@@ -1406,10 +1435,9 @@
           }
           G.flags.heating = true;
           const meal=W.counterItems[0];
-          if (meal) meal.position.set(8.62, 1.45, 3.4);
           audio.tone(110, 0.6, 0.025);
-          toast("Heating noodles · 8 seconds");
-          later(8, () => {
+          toast("Loading noodles. Door closes, then heat for 8 seconds.");
+          W.startMicrowave(meal, () => {
             G.flags.noodlesHeated = true;
             G.flags.heating = false;
             if (meal) meal.position.copyFrom(W.trayPosition(0));
@@ -1418,14 +1446,26 @@
             updateOrder();
           });
         } else {
+          W.microwave.target=W.microwave.target>.5?0:1;
           audio.play("switch");
-          toast("The microwave smells faintly of soy sauce.");
+          toast(W.microwave.target?'Microwave door open.':'Microwave door closed.');
         }
         break;
       case "coffee":
-        if(!takeCarry("coffee",null,"Hot coffee"))break;
-        audio.noise(0.8, 0.025, 900);
-        toast("Warm paper against your hands.");
+        if(G.carry){toast('Set down what you are carrying first.');break;}
+        if(W.coffee.remaining){toast('Coffee is still pouring.');break;}
+        openModal('COFFEE MACHINE','Select your coffee','<p>A fresh cup will fill under the nozzle.</p>',[
+          ...['Black coffee','Americano','Café au lait'].map(recipe=>[recipe,()=>{
+            G.flags.pouring=true;
+            W.pourCoffee(recipe,()=>{G.flags.pouring=false;takeCarry('coffee',null,recipe);audio.play('bell');toast(recipe+' ready.');});
+            const target=new V(8.48,1.58,2.3),d=target.subtract(camera.position);
+            G.player.yaw=Math.atan2(d.x,d.z);G.player.pitch=-Math.atan2(d.y,Math.hypot(d.x,d.z));
+            audio.noise(2,.025,900);toast('Pouring '+recipe.toLowerCase()+'…');
+          }]),['Cancel',()=>{}]
+        ]);
+        break;
+      case 'generator':
+        openModal('STANDBY DIESEL / SERVICE LOCK','Emergency generator','<p>Fuel tank: three quarters full. Transfer switch: OFF. A maintenance tag reads: DO NOT START UNDER LOAD.</p><p>This unit is separate from the pump disconnect. Kuroda keeps the service key.</p>');
         break;
       case "phone":
         if (G.phase === "mimic") {
@@ -1712,9 +1752,12 @@
         } else if (n.threat) {
           hurt(24, "Stay away from the Passenger.");
         } else if (n.customer?.state === "waiting") {
-          say(n.name, customerPerson(n.customer).line);
+          dialogue(n,[[n.name,customerPerson(n.customer).line]]);
           updateOrder();
-        } else say(n.name, "…");
+        } else if(n.customer && ['browsing','walking','queued','approaching'].includes(n.customer.state)) {
+          const c=n.customer,product=W.products.find(p=>p.id===c.browseSection);
+          dialogue(n,[[n.name,c.state==='browsing'?'Just looking at '+(product?.name.toLowerCase()||'these shelves')+'. No hurry. Is it your first night here?':'I’ll be with you in a moment.'],['NAO','It is. Let me know if you need anything.'],[n.name,c.id==='hasegawa'?'Keep the lights on. This road gets lonely after midnight.':'Thank you. I’m taking a little break from the road.']]);
+        } else dialogue(n,[[n.name,'Evening. Weather looks like it is turning.']]);
         break;
       }
     }
@@ -1903,6 +1946,16 @@
     show("menu", false);
     show("hud");
     scene.activeCamera = camera;
+    const api={G,phase,objective,say,toast,openModal,dialogue,focus:focusCharacter,audio,
+      camera:()=>camera,teleport:(x,z,yaw=0,pitch=0)=>{Object.assign(G.player,{x,z,yaw,pitch});updatePlayer(0);},night:beginNight};
+    if(new URLSearchParams(location.search).has('debug')&&new URLSearchParams(location.search).has('skipIntro'))beginNight();
+    else W.prologue.start(api);
+    capture();updatePlayer(0);
+  }
+  function beginNight() {
+    W.prologue.skip();
+    Object.assign(G.player,{x:7.6,z:2.9,yaw:-Math.PI/2,pitch:.1});
+    G.events=[];G.elapsed=0;
     phase("handover");
     objective(
       "Clock in at the office.",
@@ -1926,6 +1979,7 @@
       // A slightly soft internal resolution reads like tape rather than glass.
       engine.setHardwareScalingLevel(1.35);
       W = createNightWorld(engine);
+      W.onThunder=()=>{audio.noise(3,.1,180);audio.tone(38,2.8,.06,'sine',22);};
       scene = W.scene;
       camera = new B.UniversalCamera("attendant", new V(-5.4, EYE, 9.6), scene);
       camera.inputs.clear();
@@ -1996,6 +2050,9 @@
         if (["Tab", "Space", "ArrowUp", "ArrowDown"].includes(e.code))
           e.preventDefault();
         if (e.repeat) return;
+        if(G.modal && $('modal').classList.contains('conversation') && (e.code==='KeyE'||e.code==='Space'||/^Digit[1-9]$/.test(e.code))) {
+          e.preventDefault();const buttons=$('modal-buttons').querySelectorAll('button');buttons[e.code.startsWith('Digit')?Number(e.code.slice(-1))-1:0]?.click();return;
+        }
         keys.add(e.code);
         if (e.code === "Escape") {
           if (G.cctv) closeCamera();
@@ -2104,7 +2161,8 @@
           G.events = G.events.filter((e) => e.at > G.elapsed);
           for (const e of ready) if (e.serial === G.serial) e.fn();
           if (!G.cctv) {
-            updatePlayer(dt);
+            if(W.prologue.stage!=='driving')updatePlayer(dt);
+            W.prologue.update(dt);
             updateThreat(dt);
             pick();
           }
@@ -2132,6 +2190,9 @@
           }
           if (G.subtitleUntil && G.elapsed > G.subtitleUntil)
             show("subtitle", false);
+          document.body.classList.toggle('speaking',!$('subtitle').classList.contains('hidden'));
+          $('objective').classList.toggle('quiet',G.elapsed>G.objectiveUntil);
+          $('checkout').classList.toggle('distant',Math.hypot(G.player.x-7.6,G.player.z-3.2)>3.2);
           if (G.toastUntil && G.elapsed > G.toastUntil) show("toast", false);
           if (W.rtt)
             W.rtt.renderList = scene.meshes.filter(
@@ -2142,6 +2203,13 @@
             );
         }
         if (G.modal) W.updateFridges(dt);
+        if(G.focus) {
+          const p=G.focus.root.position,target=new V(p.x,p.y+1.67,p.z),d=target.subtract(camera.position);
+          const yaw=Math.atan2(d.x,d.z),pitch=-Math.atan2(d.y,Math.hypot(d.x,d.z));
+          camera.rotation.y+=Math.atan2(Math.sin(yaw-camera.rotation.y),Math.cos(yaw-camera.rotation.y))*Math.min(1,dt*5);
+          camera.rotation.x=B.Scalar.Lerp(camera.rotation.x,pitch,Math.min(1,dt*5));
+          camera.fov=B.Scalar.Lerp(camera.fov,.74,Math.min(1,dt*3));
+        }
         if (G.look) {
           G.look.update(dt, G.threat ? 1 : G.phase === "siege" ? 0.45 : 0);
           if (performance.now() - (G.lastTape || 0) > 250) {
@@ -2165,6 +2233,8 @@
           engine,
           scene,
           start,
+          beginNight,
+          dialogue,
           interact: (id) => interact(W.interactions.find((o) => o.id === id)),
           summon,
           spawnWalkIn,

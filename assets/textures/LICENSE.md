@@ -5,6 +5,8 @@ Created using **Asphalt023S**, **Concrete034**, and **Tiles074** by ambientCG / 
 - https://ambientcg.com/a/Asphalt023S
 - https://ambientcg.com/a/Concrete034
 - https://ambientcg.com/a/Tiles074
+- https://ambientcg.com/a/WoodFloor051 — apartment floors and furniture
+- https://ambientcg.com/a/Bricks051 — neighborhood facades
 - License: https://docs.ambientcg.com/license/
 - Full legal text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
 

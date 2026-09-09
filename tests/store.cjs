@@ -12,7 +12,7 @@ const { launch } = require('./helpers/browser.cjs');
     context.on('page', p => p.on('pageerror', e => errors.push(e.message)));
     page.on('pageerror', e => errors.push(e.message));
     context.on('request', r => { if (/^https?:/.test(r.url())) network.push(r.url()); });
-    await page.goto(pathToFileURL(path.resolve('index.html')).href + '?debug=1');
+    await page.goto(pathToFileURL(path.resolve('index.html')).href + '?debug=1&skipIntro=1');
     await page.waitForSelector('#menu:not(.hidden)', { timeout: 60000 });
     await page.evaluate(() => { __nightShift.G.ambientEnabled = false; });
     await page.click('#start');
@@ -94,6 +94,8 @@ const { launch } = require('./helpers/browser.cjs');
               pz = d.pivot.position.z - Math.sin(rot) * t;
             for (const c of W.colliders) {
               if (!c.enabled || c.car || c.transparent || c.door) continue;
+              if(c.mesh){c.mesh.computeWorldMatrix(true);const b=c.mesh.getBoundingInfo().boundingBox;
+                if(b.minimumWorld.y>d.pivot.position.y+d.height || b.maximumWorld.y<d.pivot.position.y)continue;}
               const name = c.mesh ? c.mesh.name : '(unnamed)';
               if (name === wall) continue; // the leaf rests against this one
               if (px > c.x - c.hx && px < c.x + c.hx && pz > c.z - c.hz && pz < c.z + c.hz)
@@ -247,7 +249,7 @@ const { launch } = require('./helpers/browser.cjs');
     });
     assert.equal(await evaluate(() => __nightShift.G.shoppers.length), 3, 'Three customers coexist');
     assert.equal(await evaluate(() => new Set(__nightShift.G.shoppers.filter(c => c.bay).map(c => c.bay.id)).size), 2, 'Walk-ins reserve distinct marked bays');
-    await tick(100);
+    await tick(145);
     assert.equal(await evaluate(() => __nightShift.G.queue.length), 2, 'Two customers queue while another uses till');
     await evaluate(() => {
       __nightShift.teleport(7.6, 3.2, -Math.PI / 2, 0.12); __nightShift.scene.render();

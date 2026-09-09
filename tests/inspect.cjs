@@ -12,7 +12,7 @@ const fs = require("node:fs");
   page.on("console", (m) => {
     if (m.type() === "error") console.error("CONSOLE", m.text().slice(0, 300));
   });
-  await page.goto(pathToFileURL(path.resolve("index.html")).href + "?debug=1");
+  await page.goto(pathToFileURL(path.resolve("index.html")).href + "?debug=1&skipIntro=1");
   await page.waitForSelector("#menu:not(.hidden)", { timeout: 60000 });
   await page.waitForTimeout(2500);
   await page.screenshot({ path: "test-results/title.png" });

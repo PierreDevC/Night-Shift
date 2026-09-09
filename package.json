@@ -4,9 +4,10 @@
   "private": true,
   "description": "A self-contained local Babylon.js horror game",
   "scripts": {
-    "test": "node tests/smoke.cjs && node tests/store.cjs",
-    "check": "node --check src/world.js && node --check src/store.js && node --check src/game.js && node --check src/audio.js && node --check src/vhs.js && node --check tests/store.cjs",
+    "test": "node tests/smoke.cjs && node tests/store.cjs && node tests/expansion.cjs",
+    "check": "node --check src/world.js && node --check src/store.js && node --check src/game.js && node --check src/audio.js && node --check src/vhs.js && node --check src/models.js && node --check src/experience.js && node --check src/prologue.js && node --check tests/store.cjs && node --check tests/expansion.cjs",
     "test:store": "node tests/store.cjs",
+    "test:expansion": "node tests/expansion.cjs",
     "textures": "node scripts/embed-textures.cjs"
   },
   "devDependencies": {

@@ -8,6 +8,8 @@
   color: var(--paper);
   color-scheme: dark;
 }
+@font-face {font-family:NightTitle;src:url('../assets/fonts/SpecialElite-Regular.ttf') format('truetype');font-display:swap;}
+@font-face {font-family:NightText;src:url('../assets/fonts/Barlow-Regular.ttf') format('truetype');font-display:swap;}
 * {
   box-sizing: border-box;
 }
@@ -844,3 +846,48 @@ kbd {
 #camcorder .cc-batt i:last-child {
   background: rgba(232, 238, 224, 0.22);
 }
+
+/* Quiet horror-game presentation. Dialogue owns the lower part of the screen. */
+:root {--accent:#d5c8a8;--paper:#eee9dd;font-family:NightText,Arial,sans-serif;}
+#menu {background:linear-gradient(90deg,#060909ed, #06090966 58%,transparent);padding:8vh 8vw;}
+#menu header,#menu footer,.menu-note,.title-period,.title-block>.eyebrow,.intro,.title-sub span:last-child {display:none;}
+.title-block {margin:auto 0;}
+h1 {font-family:NightTitle,Georgia,serif;font-size:clamp(64px,8vw,120px);font-weight:400;letter-spacing:.015em;line-height:1.06;text-shadow:3px 4px 0 #080c0b;}
+.title-sub {border:0;font:18px NightText,sans-serif;letter-spacing:.4em;margin-bottom:6vh;}
+.primary,.text-button,#modal-buttons button,#close-cctv {font:20px NightText,sans-serif;letter-spacing:.09em;text-align:left;background:transparent;color:var(--paper);border:0;border-left:2px solid transparent;padding:12px 20px;min-width:240px;transition:background .15s;}
+.primary:hover,.text-button:hover,#modal-buttons button:hover,.primary:focus-visible,.text-button:focus-visible,#modal-buttons button:focus-visible {background:linear-gradient(90deg,#c9c3ab24,transparent);border-left-color:var(--paper);outline:0;transform:none;}
+.primary span {display:none;}
+.hud-top>.brand,.controls,#camcorder .cc-tape,#camcorder .cc-batt,#camcorder .cc-rec {display:none;}
+.clock {opacity:.55;}.clock>span {display:none;}.clock>b {font:17px NightText,sans-serif;}
+#objective {top:54px;left:34px;max-width:330px;transition:opacity 1s;}
+#objective>.eyebrow {display:none;}#objective p {font:19px NightText,sans-serif;margin:0 0 5px;}#objective small {font:14px/1.45 NightText,sans-serif;color:#c6c5bc;}
+#objective.quiet {opacity:0;pointer-events:none;}
+#subtitle {bottom:8vh;width:min(82vw,960px);min-width:0;max-width:none;padding:24px 4vw;background:linear-gradient(90deg,transparent,#000b 12%,#000b 88%,transparent);}
+#subtitle b {font:16px NightText,sans-serif;letter-spacing:.12em;color:#d6c5a3;}
+#subtitle p {font:clamp(19px,2vw,27px)/1.4 NightText,sans-serif;color:#f3efe7;text-shadow:0 2px 3px #000;margin:10px 0 0;}
+#prompt {bottom:26%;font:18px NightText,sans-serif;}
+#toast {top:9vh;background:transparent;border:0;font:16px NightText,sans-serif;text-shadow:0 2px 4px black;}
+#checkout {top:65px;right:30px;width:215px;background:linear-gradient(90deg,transparent,#060907bb);border:0;padding:12px 16px;}
+#order-lines>div {font:14px/1.75 NightText,sans-serif;}#order-help {font:14px NightText,sans-serif;}
+#checkout.distant {display:none;}
+#health-wrap {opacity:.55;}#held {font:13px NightText,sans-serif;}#held .item-icon {display:none;}
+.speaking #objective,.speaking #toast,.speaking #checkout,.speaking .hud-bottom,.conversing #hud,.conversing #camcorder {opacity:0;pointer-events:none;}
+#modal {align-items:center;justify-content:center;}
+#modal article {border:0;box-shadow:none;background:linear-gradient(110deg,#101411f2,#080c0af2);width:min(760px,88vw);max-width:none;padding:38px 44px;max-height:84vh;}
+#modal h2 {font:30px NightTitle,Georgia,serif;letter-spacing:0;font-weight:400;}
+#modal-body {font:20px/1.55 NightText,sans-serif;}
+#modal-tag {font:14px NightText,sans-serif;color:#cbb994;letter-spacing:.12em;}
+#modal-buttons {display:flex;flex-direction:column;gap:4px;margin-top:22px;background:transparent;}
+#modal-buttons button:first-child {background:transparent;color:var(--paper);border-color:transparent;}
+#modal-buttons button:focus-visible,#modal-buttons button:first-child:hover {background:linear-gradient(90deg,#ddd1b62b,transparent);border-left-color:#e9dec4;}
+#modal-buttons button {font-size:18px;min-width:0;width:100%;}
+#modal.conversation {align-items:flex-end;padding-bottom:5vh;}
+#modal.conversation .modal-backdrop {background:linear-gradient(0deg,#000e,transparent 47%,transparent);backdrop-filter:none;}
+#modal.conversation article {position:relative;width:min(1000px,90vw);max-height:43vh;padding:24px 32px;background:transparent;overflow:auto;}
+#modal.conversation h2:empty {display:none;}#modal.conversation #modal-body {font-size:clamp(21px,2.15vw,29px);line-height:1.4;text-shadow:0 2px 4px #000;}
+#modal.conversation #modal-body p {margin:12px 0;}
+#modal.conversation #modal-buttons {margin-top:12px;gap:0;}
+#modal.conversation #modal-buttons button {font-size:18px;padding:7px 16px;}
+#lock-hint {font:15px NightText,sans-serif;background:#0008;bottom:28px;top:auto;}
+#lock-hint span {display:none;}
+@media(max-width:800px){#checkout{width:180px;}#subtitle{bottom:9vh;padding:16px;}#modal article{padding:22px;}#modal.conversation article{max-height:55vh;}#objective{left:24px;max-width:270px;}}

@@ -642,6 +642,7 @@
       L.wall, officeOpening - officeOpeningWidth / 2 - dividerBottom);
     wall("back room divider", 0, (officeOpening + officeOpeningWidth / 2 + dividerTop) / 2,
       L.wall, dividerTop - officeOpening - officeOpeningWidth / 2);
+    box("office doorway lintel", 0, 3.185, officeOpening, L.wall, 0.83, officeOpeningWidth, M.wall);
     box("roof", shopCx, L.height + 0.35, -2.3, shopW + 1.6, 0.24, 17.6, M.metal);
     box("interior ceiling", shopCx, L.height + 0.1, -2.3, shopW + 1.0, 0.1, 17, M.wall);
     box("shop front fascia", shopCx, L.height + 0.02, 5.24, shopW + 1.6, 0.72, 0.3, M.red);
@@ -833,6 +834,7 @@
         z,
         width,
         axis,
+        height,
         baseRot,
         openSign: -1,
         locked: false,
@@ -880,7 +882,8 @@
     // hatch, closed front return and a staff door at the back of the lane.
     const boothGlass = M.glass.clone("cashier safety glass");
     boothGlass.alpha = 0.19;
-    box("cashier glass", C.x0, 2.38, cz, 0.045, 1.76, cd, boothGlass);
+    box("cashier glass", C.x0, (counterTop + 3.28) / 2, cz, 0.045, 3.28 - counterTop, cd, boothGlass);
+    box("cashier glass bottom channel", C.x0, counterTop + 0.018, cz, 0.065, 0.036, cd, M.metal);
     for (const z of [C.z0, 1.4, C.z1])
       box("cashier glazing upright", C.x0, 2.35, z, 0.065, 1.94, 0.065, M.metal);
     box("cashier glazing top rail", C.x0, 3.28, cz, 0.07, 0.06, cd, M.metal);
@@ -897,7 +900,7 @@
     box("cashier rear half wall", 6.48, 0.79, -0.98, 1.16, 1.14, 0.14, M.wood, true);
     collider(6.48, -0.98, 0.58, 0.07, { transparent: true });
     wall("cashier gate east return", 8.58, -0.98, 0.84, 0.14);
-    W.staffDoor = swingDoor("staff-door", 7.61, -0.98, 1.1, "STAFF ONLY", 2.8, "x", "high");
+    W.staffDoor = swingDoor("staff-door", 7.61, -0.98, 1.1, "STAFF", 1.4, "x", "high");
     W.staffDoor.staffOnly = true;
     // Swing outward toward the sales floor (negative z), away from the raised
     // platform. The east hinge keeps the open leaf beside the entry lane.
@@ -919,17 +922,17 @@
     const staffFace = FACE.px,
       staffX = 6.6; // staff half of the 0.95 m counter, at the deck edge
     // Till, square in front of the attendant and opposite the pass tray.
-    const register = box("cash register", staffX, counterTop + 0.17, 3.2, 0.5, 0.34, 0.46, M.metal);
-    box("register keypad", staffX - 0.03, counterTop + 0.35, 3.2, 0.32, 0.02, 0.28, M.black);
+    const register = box("cash register", staffX, counterTop + 0.17, 2.25, 0.5, 0.34, 0.46, M.metal);
+    box("register keypad", staffX - 0.03, counterTop + 0.35, 2.25, 0.32, 0.02, 0.28, M.black);
     // Till screens are small and sit close to the attendant's face, so this one
     // is kept to about 7° of view. A larger panel here reads as a wall across
     // the lower half of the frame even when the ray to the customer is clear.
-    box("register display head", staffX + 0.12, counterTop + 0.4, 3.2, 0.16, 0.12, 0.24, M.black);
+    box("register display head", staffX + 0.12, counterTop + 0.4, 2.25, 0.16, 0.12, 0.24, M.black);
     W.registerScreen = sign(
       "register display",
       staffX + 0.201,
       counterTop + 0.4,
-      3.2,
+      2.25,
       0.22,
       0.11,
       [
@@ -944,11 +947,11 @@
     W.register = register;
     interact("register", register, "Use cash register", "register", {}, 2.5);
     // Drawer front set into the staff face of the counter, under the till.
-    box("register cash drawer", C.x1 + 0.02, 1.19, 3.2, 0.05, 0.17, 0.46, M.black);
-    box("cash drawer handle", C.x1 + 0.055, 1.19, 3.2, 0.025, 0.03, 0.22, M.metal);
+    box("register cash drawer", C.x1 + 0.02, 1.19, 2.25, 0.05, 0.17, 0.46, M.black);
+    box("cash drawer handle", C.x1 + 0.055, 1.19, 2.25, 0.025, 0.03, 0.22, M.metal);
     // Scanner beside the till, where goods are set down before ringing up.
-    const scanner = box("barcode scanner", staffX, counterTop + 0.08, 2.5, 0.3, 0.16, 0.32, M.black);
-    box("scanner red glass", staffX, counterTop + 0.171, 2.5, 0.22, 0.015, 0.22, M.redGlow);
+    const scanner = box("barcode scanner", staffX, counterTop + 0.08, 1.5, 0.3, 0.16, 0.32, M.black);
+    box("scanner red glass", staffX, counterTop + 0.171, 1.5, 0.22, 0.015, 0.22, M.redGlow);
     interact("scanner", scanner, "Scan customer items", "scanner", {}, 2.5);
     // Alarm within reach of the till hand, clear of the transaction lane.
     box("alarm plinth", 6.78, counterTop + 0.09, 3.58, 0.2, 0.18, 0.22, M.metal);
@@ -968,12 +971,12 @@
     );
     // Fuel desk and telephone further down the run, out of the sightline but
     // still inside the booth, so the attendant never leaves the counter.
-    const fuelComputer = box("fuel validation computer", staffX, counterTop + 0.25, 1.9, 0.46, 0.5, 0.42, M.black);
+    const fuelComputer = box("fuel validation computer", staffX, counterTop + 0.25, 0.6, 0.46, 0.5, 0.42, M.black);
     W.fuelScreen = sign(
       "fuel computer screen",
       staffX + 0.231,
       counterTop + 0.34,
-      1.9,
+      0.6,
       0.42,
       0.3,
       [
@@ -986,20 +989,20 @@
       staffFace,
     );
     interact("fuel-terminal", fuelComputer, "Validate fuel amount on computer", "fuel-terminal", {}, 2.6);
-    const phone = box("counter telephone", staffX, counterTop + 0.08, 1.05, 0.3, 0.16, 0.36, M.black);
-    box("telephone receiver", staffX, counterTop + 0.195, 1.05, 0.11, 0.07, 0.42, M.metal);
+    const phone = box("counter telephone", staffX, counterTop + 0.08, -0.3, 0.3, 0.16, 0.36, M.black);
+    box("telephone receiver", staffX, counterTop + 0.195, -0.3, 0.11, 0.07, 0.42, M.metal);
     interact("phone", phone, "Use telephone", "phone");
     const intercom = box("entrance intercom", 6.6, 1.5, 3.92, 0.2, 0.24, 0.18, M.metal);
     interact("intercom", intercom, "Entrance intercom / door lock", "intercom", {}, 2.6);
     // Customer-side surface: bell, pass tray, printed receipt.
     const bell = cyl("counter bell", 6.06, 1.43, 2.45, 0.15, 0.09, M.cream);
     interact("bell", bell, "Ring counter bell", "bell");
-    const tray = box("customer pass tray", 6.02, 1.41, 3.2, 0.5, 0.04, 0.62, M.metal);
-    box("pass tray lip", 6.02, 1.45, 3.2, 0.54, 0.06, 0.05, M.cream);
+    const tray = box("customer pass tray", 6.33, 1.405, 3.2, 0.72, 0.04, 0.86, M.metal);
+    box("pass tray lip", 6.33, 1.43, 2.77, 0.74, 0.03, 0.025, M.cream);
     interact("cash-tray", tray, "Take cash from the tray", "cash-tray", {}, 2.6);
     // Printer fits between the phone and fuel terminal, clear of the intercom.
-    const printer = box("receipt printer", 6.62, 1.5, 1.48, 0.2, 0.2, 0.26, M.black);
-    const receipt = box("paper receipt", 6.5, 1.62, 1.48, 0.16, 0.015, 0.3, M.cream);
+    const printer = box("receipt printer", 6.25, 1.5, 3.91, 0.2, 0.2, 0.26, M.black);
+    const receipt = box("paper receipt", 6.25, 1.61, 3.91, 0.16, 0.015, 0.3, M.cream);
     interact("receipt", receipt, "Read last receipt", "receipt");
     W.counterSpot = spot("counter", 5.35, 3.2);
     W.attendantSpot = spot("attendant", 7.6, 3.2);
@@ -1363,6 +1366,9 @@
     const notes = box("shift instructions", -4.95, 0.91, -9.33, 0.44, 0.022, 0.49, M.cream);
     interact("note", notes, "Read supervisor’s note", "note");
     const clock = box("time clock", -7.86, 1.63, -8.4, 0.16, 0.57, 0.35, M.metal);
+    wall("office records partition", -8.03, -8.4, 0.18, 4.15);
+    box("office archive cabinet", -9.8, 1.13, -10.12, 2.2, 1.8, 0.62, M.metal, true);
+    for (let i = 0; i < 4; i++) box("archive drawer", -9.8, 0.5 + i * 0.4, -9.8, 2.05, 0.35, 0.03, M.cream);
     interact("timeclock", clock, "Clock in", "timeclock");
     sign(
       "time clock label",
@@ -2286,6 +2292,7 @@
       );
       car.doorOpen = 0;
       car.doorTarget = 0;
+      if (window.NightModels) NightModels.car(W, car, body, glass);
       const hit = cb(
         "vehicle body interaction",
         0,
@@ -2359,6 +2366,7 @@
         ellipsoid("hand", 0, -0.51, 0.015, 0.11, 0.16, 0.12, skin, arm);
         n.arms.push(arm);
       }
+      if (window.NightModels) NightModels.dress(W, n, coat, hair, female);
       const hit = box(
         name + " interaction",
         0,
@@ -2423,18 +2431,18 @@
     };
 
     // The pass tray on the customer side of the counter holds their shopping.
-    W.trayOrigin = new V(6.02, 1.46, 3.2);
+    W.trayOrigin = new V(6.33, 1.427, 3.2);
     W.clearCounter = function () {
       W.counterItems.forEach((p) => p.dispose());
       W.counterItems = [];
     };
     W.trayPosition = function (i) {
       const o = W.trayOrigin;
-      return new V(o.x - 0.12 + (i % 2) * 0.2, o.y, o.z - 0.22 + Math.floor(i / 2) * 0.22);
+      return new V(o.x - 0.15 + (i % 2) * 0.27, o.y, o.z - 0.2 + Math.floor(i / 2) * 0.3);
     };
     W.scannedPosition = function (i) {
       const o = W.trayOrigin;
-      return new V(o.x + 0.16, o.y, o.z + 0.18 - i * 0.06);
+      return new V(o.x + 0.23, o.y, o.z - 0.25 + i * 0.25);
     };
 
     W.update = function (dt, player) {
@@ -2562,6 +2570,7 @@
           n.legs.forEach(
             (l, i) => (l.rotation.x = step > 0 ? Math.sin(t * 8 + i * Math.PI) * 0.37 : 0),
           );
+          n.knees?.forEach((k,i)=>k.rotation.x=step>0?Math.max(0,Math.sin(t*8+i*Math.PI))*.42:0);
           n.arms.forEach(
             (a, i) =>
               (a.rotation.x = step > 0 ? Math.sin(t * 8 + i * Math.PI + Math.PI) * 0.24 : 0),
@@ -2582,6 +2591,17 @@
       return false;
     };
     if (window.NightStoreOps) window.NightStoreOps.install(W);
+    W.setDaylight = function (day) {
+      W.daylight=day;
+      hemi.intensity=day?.78:.44;moon.intensity=day?.65:.2;
+      for(const l of W.lights)l.light.intensity=l.base*(day?.5:1);
+      hemi.diffuse=color(day?'#d4d5cb':'#8b969a');moon.diffuse=color(day?'#ffe4be':'#61808f');
+      scene.clearColor=day?new B.Color4(.52,.61,.66,1):new B.Color4(.012,.022,.028,1);
+      scene.fogColor=color(day?'#8b9ba3':'#06100b');scene.fogDensity=day?.008:.019;
+      W.rain.emitRate=day?0:2400;
+    };
+    if (window.NightExperience) NightExperience.install(W);
+    if (window.NightPrologue) NightPrologue.build(W);
     const badSpots = W.auditSpots();
     if (badSpots.length)
       throw new Error("Standing positions inside geometry: " + badSpots.join(", "));
