@@ -86,7 +86,7 @@ const { launch } = require('./helpers/browser.cjs');
       const W = __nightShift.W, fouled = [];
       for (const d of W.doors) {
         const wall = { 'office-door': 'back room divider', 'stock-door': 'sales back wall',
-          'rear-door': 'rear wall', 'staff-door': null }[d.id];
+          'rear-door': 'rear wall', 'staff-door': null, 'restroom-door': 'restroom north wall left' }[d.id];
         for (let k = 0; k <= 24; k++) {
           const rot = (d.baseRot || 0) + (k / 24) * Math.PI * 0.52 * (d.openSign || -1);
           for (let t = 0.12; t <= d.width; t += 0.12) {

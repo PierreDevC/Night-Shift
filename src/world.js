@@ -1814,13 +1814,130 @@
         Math.PI,
       ),
     );
-    for (const x of [-19, 22])
-      for (let z = 2; z < 26; z += 4) {
-        box("guard rail", x, 0.81, z, 0.1, 0.19, 3.9, M.metal);
-        box("guard rail post", x, 0.42, z, 0.1, 0.84, 0.1, M.metal, true);
-      }
+    // ---------------------------------------------------------------------
+    // Customer Restroom Annex (West exterior)
+    // ---------------------------------------------------------------------
+    box("restroom foundation", -14.2, 0.04, -1.2, 3.6, 0.28, 4.4, M.concrete);
+    box("restroom tiled floor", -14.2, floorTop - 0.04, -1.2, 3.4, 0.08, 4.2, M.floor);
+    box("restroom roof", -14.2, 3.35, -1.2, 3.8, 0.2, 4.6, M.metal);
+    box("restroom ceiling", -14.2, 3.1, -1.2, 3.4, 0.08, 4.2, M.wall);
+    wall("restroom south wall", -14.2, -3.3, 3.6, L.wall);
+    wall("restroom west wall", -15.9, -1.2, L.wall, 4.4);
+    wall("restroom east wall", -12.5, -1.2, L.wall, 4.4);
+    wall("restroom north wall left", -15.2, 0.9, 1.4, L.wall);
+    wall("restroom north wall right", -13.0, 0.9, 1.0, L.wall);
+    box("restroom doorway lintel", -14.1, 2.9, 0.9, 1.2, 0.8, L.wall, M.wall);
+    W.restroomDoor = swingDoor("restroom-door", -14.1, 0.9, 1.1, "RESTROOM", 2.3, "x");
+    W.restroomDoor.openSign = 1;
+    sign("restroom sign", -14.1, 1.75, 1.02, 0.7, 0.25,
+      [{ text: "お手洗い / RESTROOM", size: 28, y: 0.5 }], "#253b31", "#e0e8cf", Math.PI);
+    const toiletBowl = cyl("restroom toilet bowl", -15.1, 0.48, -2.3, 0.46, 0.48, M.cream, 20);
+    box("restroom toilet cistern", -15.1, 0.88, -2.7, 0.52, 0.6, 0.24, M.cream, true);
+    cyl("toilet flush handle", -14.8, 0.98, -2.68, 0.025, 0.08, M.metal, 8);
+    box("restroom toilet seat", -15.1, 0.52, -2.25, 0.44, 0.04, 0.48, M.dark);
+    interact("restroom-toilet", toiletBowl, "Flush restroom toilet", "restroom-toilet");
+    const basin = box("restroom washbasin", -13.0, 0.88, -1.0, 0.65, 0.76, 0.8, M.cream, true);
+    box("restroom basin recess", -13.0, 0.95, -1.0, 0.45, 0.12, 0.55, M.metal);
+    const tap = cyl("restroom basin tap", -12.78, 1.12, -1.0, 0.035, 0.25, M.metal, 12);
+    box("restroom mirror", -12.69, 1.68, -1.0, 0.02, 0.85, 0.7, M.metal);
+    box("soap dispenser", -12.78, 1.35, -0.55, 0.1, 0.22, 0.12, M.cream);
+    box("hand dryer", -12.78, 1.3, -1.7, 0.18, 0.32, 0.26, M.cream);
+    box("restroom fluorescent", -14.1, 3.05, -1.2, 0.22, 0.06, 1.2, M.white);
+    interact("restroom-tap", tap, "Turn washbasin tap", "restroom-tap");
+    spot("restroom", -14.1, -1.1);
 
-    // Weather, planting, distance.
+    // ---------------------------------------------------------------------
+    // Dual Outdoor Vending Machines & Recycling Station
+    // ---------------------------------------------------------------------
+    const vendCoffee = box("coffee vending machine", 11.6, 1.24, 2.9, 1.12, 2.35, 0.88, M.dark, true);
+    box("coffee vending window", 11.6, 1.53, 3.353, 0.84, 1.29, 0.03, M.black);
+    const vendCoffeeRoots = [];
+    for (let r = 0; r < 3; r++)
+      for (let k = 0; k < 4; k++)
+        vendCoffeeRoots.push(W.makeProduct("coffee", 11.29 + k * 0.2, 1.02 + r * 0.34, 3.38));
+    mergeRow(vendCoffeeRoots, "coffee vending stock");
+    sign("coffee vending label", 11.6, 2.28, 3.36, 0.93, 0.21,
+      [{ text: "BOSS COFFEE / 珈琲", size: 28, y: 0.5 }], "#1c2e42", "#cde3f5", Math.PI);
+    box("vending coin slot", 11.96, 1.45, 3.355, 0.04, 0.06, 0.015, M.metal);
+    box("vending return tray", 11.6, 0.35, 3.36, 0.55, 0.18, 0.03, M.metal);
+    interact("vending-coffee", vendCoffee, "Inspect coffee vending machine", "vending");
+
+    box("recycle bin cans", 11.6, 0.48, 1.95, 0.55, 0.96, 0.5, M.metal, true);
+    cyl("bin hole cans", 11.6, 0.962, 1.95, 0.18, 0.02, M.black, 16);
+    sign("recycle cans sign", 11.6, 0.75, 1.96, 0.45, 0.18,
+      [{ text: "缶 / CANS", size: 30, y: 0.5 }], "#284252", "#dbeaf2", Math.PI);
+    box("recycle bin pet", 11.6, 0.48, 1.35, 0.55, 0.96, 0.5, M.metal, true);
+    cyl("bin hole pet", 11.6, 0.962, 1.35, 0.18, 0.02, M.black, 16);
+    sign("recycle pet sign", 11.6, 0.75, 1.36, 0.45, 0.18,
+      [{ text: "ペットボトル", size: 26, y: 0.5 }], "#264832", "#d5eedd", Math.PI);
+
+    // ---------------------------------------------------------------------
+    // Public Telephone Booth (Koushuu Denwa)
+    // ---------------------------------------------------------------------
+    const pbX = -12.5, pbZ = 10.0;
+    box("phone booth pad", pbX, 0.04, pbZ, 1.25, 0.08, 1.25, M.concrete, true);
+    for (const sx of [-0.5, 0.5])
+      for (const sz of [-0.5, 0.5])
+        box("phone booth stile", pbX + sx, 1.25, pbZ + sz, 0.07, 2.38, 0.07, M.metal);
+    box("phone booth roof", pbX, 2.45, pbZ, 1.15, 0.12, 1.15, M.metal);
+    for (const [gx, gz, gw, gd] of [
+      [pbX, pbZ - 0.5, 0.96, 0.025],
+      [pbX - 0.5, pbZ, 0.025, 0.96],
+      [pbX + 0.5, pbZ, 0.025, 0.96]
+    ]) box("phone booth glass", gx, 1.25, gz, gw, 2.15, gd, M.glass);
+
+    box("phone booth shelf", pbX, 0.88, pbZ - 0.35, 0.65, 0.04, 0.32, M.metal);
+    const nttPhone = box("ntt public telephone", pbX, 1.16, pbZ - 0.35, 0.34, 0.44, 0.26, W.mat("ntt phone green", "#226a3c"), true);
+    box("telephone keypad", pbX, 1.12, pbZ - 0.21, 0.18, 0.16, 0.02, M.metal);
+    box("telephone coin slot", pbX + 0.1, 1.31, pbZ - 0.21, 0.04, 0.02, 0.015, M.yellow);
+    box("telephone handset", pbX - 0.12, 1.16, pbZ - 0.2, 0.06, 0.32, 0.06, M.metal);
+    box("phone booth ceiling lamp", pbX, 2.38, pbZ, 0.22, 0.04, 0.22, M.warm);
+    sign("telephone sign", pbX, 2.22, pbZ + 0.51, 0.5, 0.18,
+      [{ text: "公衆電話", size: 32, y: 0.5 }], "#256238", "#ebf5ed", Math.PI);
+    interact("public-phone", nttPhone, "Inspect public telephone", "public-phone");
+
+    // ---------------------------------------------------------------------
+    // Counter Hot Food Display Case (Chuka-man / Karaage-kun)
+    // ---------------------------------------------------------------------
+    const hfX = 8.7, hfZ = 1.05;
+    box("hot food base", hfX, 1.45, hfZ, 0.48, 0.14, 0.78, M.metal);
+    const hotFoodGlass = box("hot food glass case", hfX, 1.76, hfZ, 0.46, 0.48, 0.74, M.glass);
+    cyl("hot food lamp", hfX, 1.96, hfZ, 0.03, 0.65, M.warm, 10);
+    box("hot food shelf upper", hfX, 1.75, hfZ, 0.42, 0.015, 0.68, M.metal);
+    box("hot food shelf lower", hfX, 1.58, hfZ, 0.42, 0.015, 0.68, M.metal);
+    for (let b = 0; b < 4; b++) {
+      const bun = B.MeshBuilder.CreateSphere("steamed bun " + b, { segments: 12, diameter: 0.11 }, scene);
+      bun.position.set(hfX, 1.79, hfZ - 0.24 + b * 0.16);
+      bun.scaling.set(1, 0.6, 1);
+      bun.material = M.cream;
+      bun.isPickable = false;
+    }
+    for (let k = 0; k < 6; k++)
+      box("karaage piece " + k, hfX - 0.06 + (k % 2) * 0.12, 1.61, hfZ - 0.22 + Math.floor(k / 2) * 0.18, 0.08, 0.05, 0.08, M.wood);
+    sign("hot food label", hfX - 0.235, 1.45, hfZ, 0.68, 0.12,
+      [{ text: "中華まん · からあげ", size: 30, y: 0.5 }], "#8a2418", "#f7edd0", FACE.nx);
+    interact("hot-food", hotFoodGlass, "Inspect hot food display", "hot-food");
+
+    // ---------------------------------------------------------------------
+    // Entrance Umbrella Stand (Kasa-tate)
+    // ---------------------------------------------------------------------
+    const umbrellaStand = cyl("umbrella stand", -8.1, 0.48, 4.8, 0.32, 0.65, M.metal, 16);
+    cyl("umbrella handle 1", -8.08, 0.82, 4.78, 0.035, 0.3, M.black, 8);
+    cyl("umbrella handle 2", -8.14, 0.78, 4.84, 0.035, 0.26, M.dark, 8);
+
+    // ---------------------------------------------------------------------
+    // Roadside Infrastructure: Utility Poles, Powerlines & Guardrails
+    // ---------------------------------------------------------------------
+    const poleXs = [-55, -20, 15, 50];
+    for (let pi = 0; pi < poleXs.length; pi++) {
+      const px = poleXs[pi];
+      cyl("utility pole " + pi, px, 4.5, 36.5, 0.36, 9.0, M.concrete, 16);
+      box("pole crossarm " + pi, px, 7.8, 36.5, 2.6, 0.14, 0.16, M.metal);
+      for (const ox of [-1.1, 0, 1.1])
+        cyl("pole insulator " + pi + "_" + ox, px + ox, 7.95, 36.5, 0.08, 0.18, M.cream, 8);
+      cyl("pole transformer " + pi, px + 0.38, 6.7, 36.5, 0.54, 0.88, M.metal, 16);
+    }
+        // Weather, planting, distance.
     for (let i = 0; i < 26; i++) {
       const x = rnd() * 34 - 17,
         z = rnd() * 24 + 5.5;

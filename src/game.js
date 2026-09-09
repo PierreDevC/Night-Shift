@@ -2036,8 +2036,24 @@
       case "vending":
         audio.play("switch");
         toast(
-          "The vending machine hums. A can shifts inside, although you inserted no money.",
+          "The vending machine hums. Cold cans clink quietly in the night.",
         );
+        break;
+      case "restroom-toilet":
+        audio.noise(1.8, 0.05, 550);
+        toast("Water echoes through the old ceramic pipes.");
+        break;
+      case "restroom-tap":
+        audio.noise(1.2, 0.035, 1800);
+        toast("Cold mountain water splashes into the porcelain basin.");
+        break;
+      case "public-phone":
+        audio.play("phone");
+        toast("You lift the receiver. A cold dial tone hums against your ear.");
+        break;
+      case "hot-food":
+        audio.play("switch");
+        toast("Steamed buns and fried chicken keep warm under the amber halogen lamp.");
         break;
       case "npc": {
         const n = o.data.npc;
@@ -2236,7 +2252,9 @@
       dx = (dx / len) * speed;
       dz = (dz / len) * speed;
       if (!W.isBlocked(p.x + dx, p.z, 0.24)) p.x += dx;
+      else if (!W.isBlocked(p.x + dx * 0.45, p.z, 0.24)) p.x += dx * 0.45;
       if (!W.isBlocked(p.x, p.z + dz, 0.24)) p.z += dz;
+      else if (!W.isBlocked(p.x, p.z + dz * 0.45, 0.24)) p.z += dz * 0.45;
       G.foot += dt;
       if (G.foot > (sprint ? 0.34 : 0.52)) {
         G.foot = 0;
@@ -2262,8 +2280,10 @@
     const roll = G.settings.bob
       ? (moving ? Math.sin(t * (sprint ? 6.2 : 4.7) + 0.4) * 0.018 : Math.sin(t * 0.52) * 0.008)
       : 0;
-    // Match the visible floor, half step and cashier platform underfoot.
-    camera.position.set(p.x, EYE + W.floorElevation(p.x, p.z) + G.jumpY + bob + breathe, p.z);
+    // Match the visible floor, half step and cashier platform underfoot with smooth step transition.
+    const targetFloorY = EYE + W.floorElevation(p.x, p.z);
+    G.smoothedFloorY = (G.smoothedFloorY === undefined || !dt) ? targetFloorY : B.Scalar.Lerp(G.smoothedFloorY, targetFloorY, Math.min(1, dt * 14));
+    camera.position.set(p.x, G.smoothedFloorY + G.jumpY + bob + breathe, p.z);
     camera.rotation.set(p.pitch + swayY, p.yaw + swayX, roll);
     W.torch.position.copyFrom(camera.position);
     W.torch.direction.copyFrom(camera.getForwardRay().direction);

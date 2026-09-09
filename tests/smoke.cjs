@@ -109,8 +109,15 @@ const { launch } = require("./helpers/browser.cjs");
     __nightShift.teleport(__nightShift.W.frontDoor.x, __nightShift.W.frontDoor.z + 2.4, Math.PI),
   );
   await page.keyboard.down("KeyW");
-  await page.waitForTimeout(5000);
-  await page.keyboard.up("KeyW");
+  try {
+    await page.waitForFunction(
+      () => __nightShift.G.player.z < __nightShift.W.frontDoor.z - 0.4,
+      {},
+      { timeout: 15000 },
+    );
+  } finally {
+    await page.keyboard.up("KeyW");
+  }
   assert.ok(
     await page.evaluate(() => __nightShift.G.player.z < __nightShift.W.frontDoor.z - 0.4),
     "Can walk through the automatic front door",
